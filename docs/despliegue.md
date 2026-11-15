@@ -43,7 +43,9 @@ El plan **Blaze** ya está activo (requerido por las Functions programadas).
 
 - **Restringir la API key web** (Google Cloud Console → Credenciales) a `stocky-bbda4.web.app`, `stocky-bbda4.firebaseapp.com`, `localhost` y, si se quiere probar vistas previas, `stocky-bbda4--*.web.app`.
 - **Activar App Check** (reCAPTCHA Enterprise) en Firestore, Storage y Functions. Requiere un cambio en el cliente: no está hecho todavía.
-- **Política TTL** para `usuarios/{uid}/avisosEnviados` (crece unos pocos documentos por día).
+- **Política TTL** para `usuarios/{uid}/avisosEnviados`: la Function guarda `expiraEn` (envío + 14 días) y la política se activa **una vez** sobre ese campo, después del primer despliegue con este cambio:
+  `gcloud firestore fields ttls update expiraEn --collection-group=avisosEnviados --enable-ttl --project stocky-bbda4`
+  (No usar `enviadoEn`: es una fecha pasada y el TTL borraría el aviso al instante, reenviándolo.)
 - **Dominio autorizado**: si se usan vistas previas con inicio de sesión, revisar que Authentication acepte sus dominios.
 
 ## Probar localmente (sin tocar producción)

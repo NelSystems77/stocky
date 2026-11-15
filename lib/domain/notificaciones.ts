@@ -27,6 +27,18 @@ export interface Aviso {
 
 /** Tamaño de la franja con que corre el programador, en minutos. */
 export const FRANJA_MIN = 5;
+
+/** Días que se conserva la marca de un aviso enviado antes de que la política TTL de Firestore la borre. */
+export const DIAS_VIGENCIA_AVISO = 14;
+
+/**
+ * Fecha en que caduca la marca de un aviso (campo `expiraEn`, base de la política TTL).
+ * Debe quedar en el futuro: la marca evita avisos repetidos mientras dure su franja,
+ * y un TTL sobre una fecha pasada la borraría al instante y reenviaría el aviso.
+ */
+export function expiraEnAviso(ahora: Date, dias: number = DIAS_VIGENCIA_AVISO): Date {
+  return new Date(ahora.getTime() + dias * 24 * 60 * 60 * 1000);
+}
 export const HORA_RESUMEN_MANANA = '07:00';
 export const HORA_RESUMEN_MEDIODIA = '12:00';
 
