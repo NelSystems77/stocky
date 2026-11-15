@@ -32,3 +32,11 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **No se espera al servidor.** Guardar escribe en local y sigue; el indicador global cuenta los cambios por sincronizar. Si el servidor rechaza algo, aparece un aviso.
 - **Lectura del catálogo con límite de 6 s.** Si el servidor no responde, se usa la copia local; si tampoco hay, se guarda igual y se avisa que el catálogo se actualiza en la próxima importación.
 - **Probado con emuladores.** Login real, PDF real de 24 páginas (lectura ≈ 0,9 s), 1039 existencias y 1039 códigos escritos bajo las reglas de seguridad. En el emulador la sincronización completa tarda ~14 s; en producción debería ser menor.
+
+## 2026-11-15 · Inventario consolidado (paso 5c)
+
+- **Estado en la lista = solo A5 y A6.** «Agotado» (cuota > 0 y existencia 0) y «Bajo» (existencia < cuota mínima). Los demás estados (A1–A4: vencimiento por rotación, riesgo) dependen de consumo y lotes y llegan en la Fase 2.
+- **Productos sin cuota no se alertan.** Cuota y cuota mínima en 0 = sin política de stock; no aparecen como agotados aunque la existencia sea 0.
+- **Cantidades mostradas en la UD del producto** (`474 CN`) y, si la UD no vale 1, también en unidades sueltas (`47 400 u`). Internamente siempre unidades base.
+- **Búsqueda sin tildes ni guiones**, por código o por nombre; todas las palabras deben coincidir. Los códigos que vienen con descripción partida solo se encuentran por el texto visible.
+- **Verificado contra el PDF real (1039 productos):** 215 agotados y 154 bajos.

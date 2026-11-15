@@ -17,3 +17,8 @@ export function factorUD(ud: string, tabla: TablaUD = TABLA_UD_INICIAL): number 
 export function aUnidadesBase(cantidad: number, ud: string, tabla: TablaUD = TABLA_UD_INICIAL): number {
   return Math.round(cantidad * factorUD(ud, tabla) * 1e6) / 1e6;
 }
+
+/** Inversa de `aUnidadesBase`: unidades base → cantidad en la UD del producto (`20000` → `200 CN`). */
+export function deUnidadesBase(cantidadBase: number, ud: string, tabla: TablaUD = TABLA_UD_INICIAL): number {
+  return Math.round((cantidadBase / factorUD(ud, tabla)) * 1e6) / 1e6;
+}
