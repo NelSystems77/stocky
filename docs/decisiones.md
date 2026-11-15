@@ -21,3 +21,14 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **UD observadas en las muestras:** A, AM, CJ, CN, DO, EV, FA, FC, G, KG, LA, LT, RO, SB, SO, TA, TB, TR, TU, UD. Solo `CN` tiene factor ≠ 1 confirmado; el resto queda en 1 hasta que se confirme en la tabla editable.
 - **Datos de personas.** Los reportes de EBAIS traen al pie el nombre de quien firma como jefatura/encargado: no se lee ni se guarda.
 - **Muestras reales fuera del repo.** `lib/pdf/reales.test.ts` corre contra ellas solo con `STOCKY_PDF_DIR=/ruta npm run test`.
+
+## 2026-11-15 · Importación de reportes (paso 5b)
+
+- **Un reporte solo se guarda en el despacho al que pertenece.** Un usuario 771 no puede guardar el reporte de un EBAIS (despacho 13, 11…); se muestra el motivo y el botón Guardar queda deshabilitado. El superadmin queda exento (no tiene datos propios de inventario).
+- **Primera carga siembra el catálogo.** Con el catálogo vacío, todos los códigos se crean con `nuevo: false`. Desde la segunda carga, los códigos que no estén se crean con `nuevo: true`.
+- **Catálogo en lotes aparte.** Si otra persona crea el mismo código a la vez, solo falla ese paso (la regla permite crear, nunca editar) y las existencias del usuario ya quedaron guardadas.
+- **Existencias con `merge`.** Cada importación actualiza solo los campos que el reporte trae (el de existencias trae cuota mínima; el de productos en despacho trae consumo). Los productos que no aparecen en un reporte no se borran.
+- **Consumos pendientes de definir.** `RptSIFA032` trae «consumo» sin período explícito. Por ahora se guarda crudo por importación (`consumos/{importación}_{código}`) y **no** se calcula consumo diario ni cobertura hasta confirmar qué período cubre (¿mes en curso, desde la última carga?).
+- **No se espera al servidor.** Guardar escribe en local y sigue; el indicador global cuenta los cambios por sincronizar. Si el servidor rechaza algo, aparece un aviso.
+- **Lectura del catálogo con límite de 6 s.** Si el servidor no responde, se usa la copia local; si tampoco hay, se guarda igual y se avisa que el catálogo se actualiza en la próxima importación.
+- **Probado con emuladores.** Login real, PDF real de 24 páginas (lectura ≈ 0,9 s), 1039 existencias y 1039 códigos escritos bajo las reglas de seguridad. En el emulador la sincronización completa tarda ~14 s; en producción debería ser menor.

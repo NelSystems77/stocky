@@ -4,11 +4,13 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, Upload } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Card } from '@/components/ui/Card';
 import { ChipAlerta } from '@/components/ui/ChipAlerta';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { hoyCostaRica } from '@/lib/domain/calendario';
+import { suscribirUltimaImportacion, type Importacion } from '@/lib/db/importaciones';
 
 function saludo(ahora: Date): string {
   const hora = Number(
@@ -19,8 +21,22 @@ function saludo(ahora: Date): string {
   return 'Buenas noches';
 }
 
+const ETIQUETA_TIPO = {
+  existenciasDespacho: 'Existencias de despacho',
+  productosEnDespacho: 'Productos en despacho',
+} as const;
+
 export default function Hoy() {
   const { estado } = useAuth();
+  // `undefined` = todavía cargando; `null` = no hay importaciones.
+  const [ultima, setUltima] = useState<Importacion | null | undefined>(undefined);
+  const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
+
+  useEffect(() => {
+    if (!uid) return;
+    return suscribirUltimaImportacion(uid, setUltima);
+  }, [uid]);
+
   if (estado.fase !== 'listo') return null;
   const { sesion } = estado;
 
@@ -30,7 +46,7 @@ export default function Hoy() {
 
   return (
     <Pantalla titulo={`${saludo(ahora)}, ${sesion.nombre.split(' ')[0] ?? ''}`}>
-      <p className="-mt-3 text-sm text-text-muted capitalize">{fecha}</p>
+      <p className="-mt-3 text-sm text-text-muted first-letter:uppercase">{fecha}</p>
 
       <section aria-label="Alertas" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ChipAlerta href="/inventario/" etiqueta="Vencimientos" valor={null} tono="critical" icono={Clock} />
@@ -41,19 +57,34 @@ export default function Hoy() {
         <ChipAlerta href="/agenda/" etiqueta="Pedidos y envíos" valor={null} tono="info" icono={CalendarClock} />
       </section>
 
-      <Card className="flex flex-col items-start gap-3">
-        <p className="font-semibold">Todavía no hay reportes cargados</p>
-        <p className="text-sm text-text-muted">
-          Importa tu primer PDF de SIFA para ver vencimientos, riesgo de agotamiento y bajos.
-        </p>
-        <Link
-          href="/importar/"
-          className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-accent px-4 text-sm font-semibold text-bg"
-        >
-          <Upload aria-hidden className="size-4" />
-          Importar reporte
-        </Link>
-      </Card>
+      {ultima === null && (
+        <Card className="flex flex-col items-start gap-3">
+          <p className="font-semibold">Todavía no hay reportes cargados</p>
+          <p className="text-sm text-text-muted">
+            Importa tu primer PDF de SIFA para ver vencimientos, riesgo de agotamiento y bajos.
+          </p>
+          <Link
+            href="/importar/"
+            className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-accent px-4 text-sm font-semibold text-bg"
+          >
+            <Upload aria-hidden className="size-4" />
+            Importar reporte
+          </Link>
+        </Card>
+      )}
+      {ultima && (
+        <Card className="flex items-center justify-between gap-3 text-sm">
+          <div>
+            <p className="font-semibold">Último reporte: {ETIQUETA_TIPO[ultima.tipoReporte]}</p>
+            <p className="text-text-muted">
+              {format(ultima.fechaReporte.toDate(), "d 'de' MMMM yyyy", { locale: es })} · {ultima.filas} productos
+            </p>
+          </div>
+          <Link href="/importar/" className="inline-flex min-h-11 items-center rounded-2xl bg-surface-2 px-4 font-semibold">
+            Importar
+          </Link>
+        </Card>
+      )}
 
       <section aria-label="Tareas de hoy">
         <h2 className="mb-2 text-lg font-semibold">Tareas de hoy</h2>

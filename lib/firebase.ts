@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
 import {
+  connectFirestoreEmulator,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -21,6 +22,9 @@ const config = {
 
 const REGION_FUNCTIONS = 'us-central1';
 
+/** Solo para desarrollo y pruebas locales: `NEXT_PUBLIC_USE_EMULATORS=true` apunta a los emuladores de Firebase. */
+const USAR_EMULADORES = process.env.NEXT_PUBLIC_USE_EMULATORS === 'true';
+
 /**
  * Inicialización perezosa: solo se invoca desde el cliente (efectos, manejadores),
  * nunca durante el prerender estático.
@@ -32,17 +36,26 @@ export function firebaseApp(): FirebaseApp {
   return getApps().length > 0 ? getApp() : initializeApp(config);
 }
 
+let auth: Auth | undefined;
+
 export function firebaseAuth(): Auth {
-  return getAuth(firebaseApp());
+  if (!auth) {
+    auth = getAuth(firebaseApp());
+    if (USAR_EMULADORES) connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  }
+  return auth;
 }
 
 let db: Firestore | undefined;
 
 /** Firestore con persistencia local (IndexedDB) y soporte multi-pestaña para trabajar sin conexión. */
 export function firestore(): Firestore {
-  db ??= initializeFirestore(firebaseApp(), {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-  });
+  if (!db) {
+    db = initializeFirestore(firebaseApp(), {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+    if (USAR_EMULADORES) connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  }
   return db;
 }
 
