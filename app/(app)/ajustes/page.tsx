@@ -1,13 +1,17 @@
 'use client';
 
-import { Bell, BellOff } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Bell, BellOff, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { guardarAjusteNotificacion, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
+import { guardarAjusteNotificacion, guardarFeriados, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
+import { agregarFeriado, esFechaValida, feriadosPorAnio, quitarFeriado } from '@/lib/domain/feriados';
+import type { FechaISO } from '@/lib/domain/types';
 import type { AjustesNotificaciones } from '@/lib/domain/notificaciones';
 import { activarNotificaciones, desactivarNotificaciones, notificacionesSoportadas, type ResultadoActivacion } from '@/lib/notificaciones';
 
@@ -31,6 +35,7 @@ export default function Ajustes() {
   const [datos, setDatos] = useState<DatosUsuario | undefined>(undefined);
   const [soportado, setSoportado] = useState<boolean | undefined>(undefined);
   const [ocupado, setOcupado] = useState(false);
+  const [nueva, setNueva] = useState('');
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
 
   useEffect(() => {
@@ -58,6 +63,34 @@ export default function Ajustes() {
     await desactivarNotificaciones(uid).catch(() => undefined);
     setOcupado(false);
     mostrar('Notificaciones desactivadas en este dispositivo.', { tono: 'info' });
+  }
+
+  const feriados = datos.feriados;
+
+  function guardar(lista: readonly FechaISO[], mensajeError: string) {
+    if (!uid) return;
+    void guardarFeriados(uid, lista).catch(() => mostrar(mensajeError, { tono: 'error' }));
+  }
+
+  function agregar() {
+    if (!esFechaValida(nueva)) {
+      mostrar('Elige una fecha válida.', { tono: 'error' });
+      return;
+    }
+    if (feriados.includes(nueva)) {
+      mostrar('Ese feriado ya está en la lista.', { tono: 'info' });
+      return;
+    }
+    guardar(agregarFeriado(feriados, nueva), 'No se pudo guardar el feriado.');
+    setNueva('');
+  }
+
+  function quitar(fecha: FechaISO) {
+    guardar(quitarFeriado(feriados, fecha), 'No se pudo quitar el feriado.');
+    mostrar('Feriado quitado.', {
+      tono: 'info',
+      accion: { etiqueta: 'Deshacer', alPulsar: () => guardar(agregarFeriado(quitarFeriado(feriados, fecha), fecha), 'No se pudo deshacer.') },
+    });
   }
 
   return (
@@ -116,6 +149,63 @@ export default function Ajustes() {
         <p className="text-xs text-text-muted">
           Solo se avisa en días laborables (lunes a viernes y el segundo sábado del mes). Los demás avisos, como envíos a los EBAIS, llegan con sus módulos.
         </p>
+      </section>
+
+      <section aria-label="Feriados" className="mt-8 flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Feriados</h2>
+        <p className="text-xs text-text-muted">
+          En estas fechas no hay avisos ni tareas recurrentes, y «Posponer al próximo día laboral» las salta. Las tareas únicas conservan la fecha que elegiste.
+        </p>
+        <Card className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-sm">
+            Agregar feriado
+            <input
+              type="date"
+              value={nueva}
+              disabled={!datos.existe}
+              onChange={(e) => setNueva(e.target.value)}
+              className="min-h-11 w-full rounded-2xl bg-surface-2 px-4 text-text"
+            />
+          </label>
+          <Button disabled={!datos.existe || !nueva} onClick={agregar}>
+            Agregar
+          </Button>
+        </Card>
+
+        {feriados.length === 0 ? (
+          <p className="text-sm text-text-muted">Todavía no has agregado feriados.</p>
+        ) : (
+          feriadosPorAnio(feriados).map((g) => (
+            <div key={g.anio} className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-text-muted">{g.anio}</h3>
+              <ul className="flex flex-col gap-2">
+                {g.fechas.map((f) => (
+                  <li key={f} className="flex min-h-12 items-center justify-between gap-3 rounded-2xl bg-surface px-4 py-1">
+                    <span className="text-sm first-letter:uppercase">{format(parseISO(f), "EEEE d 'de' MMMM", { locale: es })}</span>
+                    <button
+                      type="button"
+                      aria-label={`Quitar el feriado del ${format(parseISO(f), "d 'de' MMMM yyyy", { locale: es })}`}
+                      onClick={() => quitar(f)}
+                      className="grid size-11 place-items-center rounded-xl text-text-muted hover:text-critical focus-visible:outline-2 focus-visible:outline-accent"
+                    >
+                      <Trash2 aria-hidden className="size-5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </section>
+
+      <section aria-label="Unidades de medida" className="mt-8 flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Unidades de medida</h2>
+        <Card className="flex flex-col gap-1 text-sm">
+          <p>
+            <span className="font-mono">CN</span> = 100 unidades (1.5 CN = 150 unidades).
+          </p>
+          <p className="text-text-muted">Las demás unidades (FC, TR, tubo, ampolla, frasco…) valen 1.</p>
+        </Card>
       </section>
     </Pantalla>
   );

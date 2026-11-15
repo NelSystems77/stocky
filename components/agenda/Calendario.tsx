@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import { esSegundoSabado, hoyCostaRica, inicioSemana, rangoCuadriculaMes, sumarDias } from '@/lib/domain/calendario';
 import { estaAbierta, ocurrencias, type Cumplimiento, type Ocurrencia, type Tarea } from '@/lib/domain/tareas';
 import type { FechaISO } from '@/lib/domain/types';
-import { FERIADOS } from '@/lib/tareas/useAgenda';
+import { useFeriados } from '@/lib/tareas/useFeriados';
 
 type Vista = 'dia' | 'semana' | 'mes';
 const VISTAS: [Vista, string][] = [
@@ -64,6 +64,7 @@ function ListaDia({ fecha, items, conTitulo }: { fecha: FechaISO; items: Ocurren
 
 export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplimientos: Cumplimiento[] }) {
   const hoy = hoyCostaRica();
+  const feriados = useFeriados();
   const [vista, setVista] = useState<Vista>('mes');
   const [ref, setRef] = useState<FechaISO>(hoy);
   const [sel, setSel] = useState<FechaISO>(hoy);
@@ -78,11 +79,11 @@ export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplim
 
   const porDia = useMemo(() => {
     const mapa = new Map<FechaISO, Ocurrencia[]>();
-    for (const o of ocurrencias(tareas, cumplimientos, desde, hasta, FERIADOS)) {
+    for (const o of ocurrencias(tareas, cumplimientos, desde, hasta, feriados)) {
       mapa.set(o.fechaVence, [...(mapa.get(o.fechaVence) ?? []), o]);
     }
     return mapa;
-  }, [tareas, cumplimientos, desde, hasta]);
+  }, [tareas, cumplimientos, desde, hasta, feriados]);
 
   function mover(delta: 1 | -1) {
     const nuevo =
