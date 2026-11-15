@@ -6,8 +6,9 @@
     "node": "22"
   },
   "scripts": {
+    "prebuild": "node ../scripts/copiar-dominio.mjs",
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "npm run prebuild && tsc --noEmit"
   },
   "dependencies": {
     "firebase-admin": "^14.5.1",
