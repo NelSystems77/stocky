@@ -6,6 +6,7 @@ import { ArrowLeft, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
+import { BotonesExportar } from '@/components/reportes/BotonesExportar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
@@ -21,6 +22,8 @@ import {
   type RegistroAgotado,
 } from '@/lib/domain/agotados';
 import { hoyCostaRica } from '@/lib/domain/calendario';
+import { rangoPeriodo, type TipoPeriodo } from '@/lib/domain/periodos';
+import { reporteAgotados } from '@/lib/reports/construir';
 import type { FechaISO } from '@/lib/domain/types';
 
 const fecha = (f: FechaISO) => format(parseISO(f), "d 'de' MMM yyyy", { locale: es });
@@ -44,6 +47,9 @@ export default function Agotados() {
   const [registros, setRegistros] = useState<RegistroAgotado[] | undefined>(undefined);
   const hoy = hoyCostaRica();
   const cerrando = useRef(new Set<string>());
+  const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
 
   useEffect(() => {
     if (!uid) return;
@@ -146,6 +152,55 @@ export default function Agotados() {
               </ul>
             )}
           </section>
+
+          {(registros.length > 0) && (
+            <section aria-label="Reporte de agotados" className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+              <h2 className="text-lg font-semibold">Reporte</h2>
+              <div className="flex gap-2 overflow-x-auto" role="group" aria-label="Período del reporte">
+                {(
+                  [
+                    ['semana', 'Esta semana'],
+                    ['mes', 'Este mes'],
+                    ['personalizado', 'Personalizado'],
+                  ] as const
+                ).map(([id, etiqueta]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={tipoPeriodo === id}
+                    onClick={() => setTipoPeriodo(id)}
+                    className={`min-h-11 shrink-0 rounded-full px-4 text-sm transition duration-200 ${tipoPeriodo === id ? 'bg-accent font-semibold text-bg' : 'bg-surface-2 text-text-muted'}`}
+                  >
+                    {etiqueta}
+                  </button>
+                ))}
+              </div>
+              {tipoPeriodo === 'personalizado' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1 text-xs text-text-muted">
+                    Desde
+                    <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm text-text" />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-text-muted">
+                    Hasta
+                    <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm text-text" />
+                  </label>
+                </div>
+              )}
+              <BotonesExportar
+                armar={() => {
+                  const periodo = rangoPeriodo(tipoPeriodo, hoy, desde, hasta);
+                  if (!periodo || estado.fase !== 'listo') return null;
+                  const descripciones = new Map((existencias ?? []).map((e) => [e.codigo, e.descripcion]));
+                  return reporteAgotados(registros, descripciones, periodo, hoy, {
+                    usuario: estado.sesion.nombre,
+                    unidad: estado.sesion.unidad ?? '',
+                    generadoEn: new Date(),
+                  });
+                }}
+              />
+            </section>
+          )}
 
           {cerrados.length > 0 && (
             <section aria-label="Reabastecidos" className="flex flex-col gap-2">

@@ -1,0 +1,97 @@
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { MARCA, type DatosReporte } from './tipos';
+
+const AZUL_NOCHE: [number, number, number] = [11, 18, 32];
+const TURQUESA: [number, number, number] = [45, 212, 191];
+const GRIS_CLARO: [number, number, number] = [243, 244, 246];
+
+/** Genera el PDF en el dispositivo (jspdf se carga solo cuando se pide un reporte). */
+export async function generarPdf(d: DatosReporte): Promise<Uint8Array> {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+  const horizontal = d.columnas.length > 5;
+  const doc = new jsPDF({ orientation: horizontal ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const margen = 12;
+
+  // Encabezado de marca
+  doc.setFillColor(...AZUL_NOCHE);
+  doc.rect(0, 0, ancho, 20, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text('Stocky', margen, 13);
+  doc.setTextColor(...TURQUESA);
+  doc.setFontSize(10);
+  doc.text('by NelSystems', margen + 23, 13);
+
+  const fecha = format(d.generadoEn, "d 'de' MMMM yyyy, h:mm a", { locale: es });
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`${d.usuario}${d.unidad ? ` · Unidad ${d.unidad}` : ''}`, ancho - margen, 9, { align: 'right' });
+  doc.text(`Generado el ${fecha}`, ancho - margen, 14.5, { align: 'right' });
+
+  // Título y detalle
+  doc.setTextColor(...AZUL_NOCHE);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(d.titulo, margen, 30);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(75, 85, 99);
+  let y = 36;
+  for (const linea of d.detalle) {
+    doc.text(linea, margen, y);
+    y += 5;
+  }
+
+  const numericas = d.columnasNumericas ?? [];
+  const alineacion: Record<number, { halign: 'right' }> = {};
+  for (const i of numericas) alineacion[i] = { halign: 'right' };
+
+  autoTable(doc, {
+    startY: y + 1,
+    head: [d.columnas],
+    body: d.filas.map((f) => f.map((c) => String(c))),
+    margin: { left: margen, right: margen, bottom: 16 },
+    styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 2, textColor: AZUL_NOCHE, overflow: 'linebreak' },
+    headStyles: { fillColor: AZUL_NOCHE, textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: GRIS_CLARO },
+    columnStyles: alineacion,
+    didParseCell: (datos) => {
+      if (datos.section === 'head' && numericas.includes(datos.column.index)) datos.cell.styles.halign = 'right';
+    },
+  });
+
+  // Resumen al pie de la tabla
+  const final = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y;
+  let yResumen = final + 8;
+  if (yResumen > alto - 24) {
+    doc.addPage();
+    yResumen = 20;
+  }
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(...AZUL_NOCHE);
+  doc.text('Resumen', margen, yResumen);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  for (const linea of d.resumen) {
+    yResumen += 5.5;
+    doc.text(linea, margen, yResumen);
+  }
+
+  // Pie de página con numeración
+  const paginas = doc.getNumberOfPages();
+  for (let i = 1; i <= paginas; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text(MARCA, margen, alto - 7);
+    doc.text(`Página ${i} de ${paginas}`, ancho - margen, alto - 7, { align: 'right' });
+  }
+
+  return new Uint8Array(doc.output('arraybuffer'));
+}

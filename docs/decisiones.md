@@ -93,3 +93,12 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Un producto que vuelve a agotarse** genera un registro nuevo; el anterior queda en el historial.
 - **Chips en Hoy:** Agotados y Bajos se cuentan desde la existencia importada (no desde el registro), con guion mientras no haya existencias.
 - **Pendiente de este bloque:** exportar a PDF/Excel la lista de bajos y el reporte de agotados (RF-3.2, RF-3.5) y el alta manual de un agotado.
+
+## 2026-11-15 · Exportaciones PDF y Excel (agotados y bajos)
+
+- **Dependencias nuevas** (ya estaban en el stack de `CLAUDE.md`): `jspdf`, `jspdf-autotable` y `xlsx`. Se cargan con `import()` solo al pulsar PDF o Excel, para no pesar en la carga inicial. Los archivos se generan en el dispositivo (funciona sin conexión) y no pasan por ningún servidor.
+- **`xlsx` 0.18.5 de npm tiene dos avisos de `npm audit`** (contaminación de prototipo y ReDoS). Solo aplican al **leer** archivos de terceros; aquí únicamente se **escribe**. Si el aviso molesta, la alternativa es instalar la versión corregida desde el sitio oficial de SheetJS (`cdn.sheetjs.com`), que queda fuera de npm.
+- **Encabezado de los reportes:** texto «Stocky by NelSystems» sobre una banda azul noche, usuario, unidad (771/772) y fecha de generación. Todavía no hay logo oficial en el repo.
+- **Lista de bajos:** del más escaso al menos escaso (existencia ÷ cuota mínima). Cantidades en la UD del producto; los agotados (existencia 0) no se incluyen, tienen su propio reporte.
+- **Reporte de agotados por período:** «esta semana» (de lunes a hoy), «este mes» (del día 1 a hoy) o personalizado. Incluye los registros que tocan el período: los que se agotaron en él y los que ya estaban agotados y siguieron así dentro de él.
+- **Pendiente:** el resumen mensual de labores (PRD §7) reutilizará este mismo generador.
