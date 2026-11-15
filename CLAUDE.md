@@ -91,7 +91,7 @@ Ningún cliente puede escribir claims ni su propio `role`. Crear, desactivar y r
 ├─ lib/
 │  ├─ firebase.ts               # init única (app, auth, db, messaging, functions)
 │  ├─ db/                       # acceso a colecciones tipado (un archivo por colección)
-│  ├─ domain/                   # lógica pura: unidades, cobertura, reglas A1–A8, recurrencias
+│  ├─ domain/                   # lógica pura: unidades, cobertura, reglas A1–A8, recurrencias, conteo físico
 │  ├─ pdf/                      # parsers de reportes SIFA
 │  ├─ reports/                  # generadores PDF/Excel
 │  └─ qr/
@@ -129,6 +129,7 @@ Ningún cliente puede escribir claims ni su propio `role`. Crear, desactivar y r
 - **Próximo ingreso** = segundo sábado del mes (actual si no ha pasado, si no el siguiente).
 - **Reglas A1–A8** exactamente como en `docs/PRD.md` §6. Umbrales leídos de los ajustes del usuario.
 - **Calendario laboral:** lunes a viernes + segundo sábado del mes; feriados configurables. Ninguna recurrencia ni aviso fuera de ese calendario.
+- **Conteo físico (§13):** la persona escribe **unidades sueltas** (ej. `20000`); el sistema guarda unidades base y muestra en la UD del producto (`200 CN`). Diferencia = contado − SIFA, con signo `-` cuando falta.
 
 ---
 
@@ -165,6 +166,7 @@ Modo **oscuro inmersivo por defecto**, claro opcional. El color se reserva para 
 - Splash NelSystems (1–1,5 s) → login (solo si no hay sesión) → **Hoy**.
 - Mobile first, probado desde 360 px de ancho.
 - Accesibilidad: contraste AA, `aria-label` en botones de ícono, foco visible.
+- **Filas con diferencia** (conteo físico): fondo **gris** (`surface-2` más claro en pantalla, gris claro en PDF/Excel) para distinguirlas a simple vista, sin gastar los colores reservados a lo urgente. El signo `-` y el valor en negrita refuerzan la señal (no depender solo del color).
 
 ---
 
@@ -220,3 +222,28 @@ El despliegue **no** se hace desde la sesión de Claude: lo hace GitHub Actions 
 - Cantidad y nombres de estantes, tarimas y filas del 771 → el mapa se construye desde ajustes, sin valores fijos.
 - Lista completa de UD y factores → tabla editable con `CN = 100` precargado.
 - PDF reales de existencias, lotes/vencimientos y consumos → el parser se diseña por columnas detectadas en el encabezado (`CODIGO`, `UD`, `DESCRIPCION DEL PRODUCTO`, `CUOTA`, `Cuota Mínima`, `EXISTENCIA`, …) y se ajusta con muestras reales.
+
+---
+
+## 13. Conteo físico con diferencias contra SIFA (idea acordada, aún no construida)
+
+Función nueva **no incluida en `docs/PRD.md`**. Vive en Inventario (conteo) y en Reportes (PDF/Excel). Se construye después del consolidado de Inventario; no adelantarla a otras fases sin pedirlo.
+
+**Qué es:** la persona cuenta físicamente los productos, escribe lo contado y Stocky lo compara con la existencia que dice SIFA (importada por PDF), señalando las diferencias.
+
+**Cómo se espera que funcione**
+
+1. **Alcance:** contar todos los productos o un subconjunto (p. ej. por ubicación cuando exista ese módulo).
+2. **Foto de SIFA:** al iniciar el conteo se congela la existencia de SIFA y la fecha de su reporte. Importar otro reporte después **no** cambia las diferencias de un conteo ya iniciado.
+3. **Captura en unidades sueltas.** La persona escribe, por ejemplo, `20000`. El sistema lo convierte con el factor de la UD y lo muestra en la UD del producto: `20000` unidades de un producto `CN` (factor 100) = `200 CN`. Internamente todo sigue en unidades base. Productos con factor 1 (FC, TR, tubo, ampolla, frasco…) se muestran igual que se escribieron. Debe aceptar decimales (`20050` → `200.5 CN`).
+4. **Diferencia = contado − SIFA**, expresada en la UD del producto y calculada en unidades base:
+   - Falta producto → signo **`-`** (ej. `-50 CN`).
+   - Sobra producto → signo `+` (ej. `+12 CN`).
+   - Coincide → `0` sin marca.
+   - Producto sin contar → no tiene diferencia (queda “sin contar”, no cuenta como 0).
+5. **Resaltado:** las filas con diferencia ≠ 0 se pintan en **gris** (pantalla, PDF y Excel) y el valor de la diferencia va en negrita. Hay un filtro “solo con diferencias”.
+6. **Offline:** capturar y guardar el conteo sin conexión; se sincroniza al volver la red.
+7. **Exportación PDF** (`jspdf` + `jspdf-autotable`) y **Excel** (`xlsx`). Columnas: Código, Descripción, UD, SIFA, Contado, Diferencia, Observación. Encabezado con logo Stocky by NelSystems, nombre del usuario, unidad (771/772), fecha del conteo y fecha del reporte de SIFA usado. Resumen al pie: productos contados, con diferencia, faltantes y sobrantes.
+8. **Pruebas obligatorias (Vitest):** conversión sueltas → UD (`20000 → 200 CN`, decimales, factor 1), signo de la diferencia, producto sin contar, y que el conteo conserve su foto de SIFA.
+
+**Pendiente de confirmar (no inventar):** si se cuenta también **por lote** (requiere el reporte de lotes y vencimientos, aún sin muestra) y qué hacer con productos contados que no estén en el reporte de SIFA.
