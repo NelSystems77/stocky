@@ -10,6 +10,9 @@ const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains', 
 export const metadata: Metadata = {
   title: 'Stocky by NelSystems',
   description: 'Asistente de pendientes del Almacén Local 771',
+  manifest: '/manifest.webmanifest',
+  icons: { icon: '/icons/favicon-32.png', apple: '/icons/apple-touch-icon.png' },
+  appleWebApp: { capable: true, title: 'Stocky', statusBarStyle: 'black-translucent' },
 };
 
 export const viewport: Viewport = { themeColor: '#0B1220', width: 'device-width', initialScale: 1 };

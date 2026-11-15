@@ -5,13 +5,15 @@
   "description": "Stocky by NelSystems — asistente de pendientes para el Almacén Local 771",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "lint": "eslint .",
     "test": "vitest run",
-    "emulators": "firebase emulators:start --only auth,firestore,functions,storage"
+    "emulators": "firebase emulators:start --only auth,firestore,functions,storage",
+    "typecheck:sw": "tsc -p tsconfig.sw.json --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.6",
+    "@serwist/next": "^9.5.13",
     "date-fns": "^4.4.0",
     "firebase": "^13.3.0",
     "lucide-react": "^1.73.0",
@@ -20,6 +22,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hook-form": "^7.92.0",
+    "serwist": "^9.5.13",
     "zod": "^4.6.7"
   },
   "devDependencies": {

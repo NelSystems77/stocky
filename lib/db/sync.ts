@@ -1,14 +1,18 @@
+import { waitForPendingWrites } from 'firebase/firestore';
 import { useSyncExternalStore } from 'react';
+import { firestore } from '@/lib/firebase';
 
 export interface EstadoSync {
   online: boolean;
-  /** Escrituras locales aún sin confirmar por el servidor. */
+  /** Escrituras de esta sesión aún sin confirmar por el servidor (se pueden contar). */
   pendientes: number;
+  /** Hay cambios en cola de una sesión anterior (la página se recargó sin conexión): no se pueden contar. */
+  heredados: boolean;
 }
 
-let estado: EstadoSync = { online: true, pendientes: 0 };
+let estado: EstadoSync = { online: true, pendientes: 0, heredados: false };
 const oyentes = new Set<() => void>();
-const SERVIDOR: EstadoSync = { online: true, pendientes: 0 };
+const SERVIDOR: EstadoSync = { online: true, pendientes: 0, heredados: false };
 
 function cambiar(parcial: Partial<EstadoSync>): void {
   estado = { ...estado, ...parcial };
@@ -18,8 +22,32 @@ function cambiar(parcial: Partial<EstadoSync>): void {
 const alConectar = () => cambiar({ online: true });
 const alDesconectar = () => cambiar({ online: false });
 
+let revisado = false;
+
+/**
+ * Tras recargar, los cambios hechos sin conexión siguen en la cola local de Firestore pero el contador en memoria
+ * se reinició. `waitForPendingWrites` se cumple de inmediato si no hay nada en cola; si tarda, hay cambios heredados.
+ */
+function revisarHeredados(): void {
+  if (revisado) return;
+  revisado = true;
+  try {
+    let resuelto = false;
+    void waitForPendingWrites(firestore()).then(() => {
+      resuelto = true;
+      cambiar({ heredados: false });
+    });
+    setTimeout(() => {
+      if (!resuelto) cambiar({ heredados: true });
+    }, 500);
+  } catch {
+    // Sin configuración de Firebase: no hay nada que revisar.
+  }
+}
+
 function suscribir(oyente: () => void): () => void {
   if (oyentes.size === 0) {
+    revisarHeredados();
     window.addEventListener('online', alConectar);
     window.addEventListener('offline', alDesconectar);
     estado = { ...estado, online: navigator.onLine };

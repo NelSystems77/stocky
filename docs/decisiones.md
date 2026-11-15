@@ -52,3 +52,20 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Calendario:** día, semana (empieza en lunes) y mes. Marca el segundo sábado como «Ingreso de mercadería». En esta versión es de solo lectura: las tareas se cierran desde Hoy. Pedidos y envíos se suman en la Fase 2.
 - **Gestos en celular:** deslizar a la derecha completa, a la izquierda pospone (umbral 90 px). Probado con eventos táctiles reales.
 - **Pendiente:** notificaciones push (7:00 / 12:00 y por hora de tarea), que requieren Functions programadas, plan Blaze y el service worker del PWA.
+
+## 2026-11-15 · PWA y notificaciones (paso 6b)
+
+- **Build con webpack.** `npm run build` ahora corre `next build --webpack`: el plugin de Serwist (`@serwist/next`) no funciona con Turbopack, que es el predeterminado de Next 16. El service worker (`app/sw.ts`) se compila a `public/sw.js` (ignorado por git y por ESLint) y se revisa de tipos aparte con `npm run typecheck:sw`.
+- **App shell en precache:** JS, CSS, íconos y las 10 pantallas (`/`, `/login/`, `/hoy/`, …) para abrir sin conexión desde la primera visita.
+- **Íconos provisionales.** No hay logo de NelSystems en el repo: los íconos (`public/icons/`) son una «S» turquesa sobre el fondo de la marca. Reemplazar cuando haya el logo oficial.
+- **Avisos push sin SDK en el worker.** El servidor manda un mensaje FCM con `notification`; el service worker lo muestra con `showNotification` y al tocarlo abre `/hoy/`. La clave VAPID pública va en `NEXT_PUBLIC_FIREBASE_VAPID_KEY`.
+- **Una sola Function programada** (`tickNotificaciones`): cada 5 minutos, lunes a sábado de 6:00 a 19:55, hora de Costa Rica. Decide por franja de 5 min: resumen 7:00, resumen 12:00 y recordatorio a la hora de cada tarea. Domingos, sábados que no son el segundo y feriados los descarta `lib/domain/notificaciones.ts`.
+- **Sin avisos repetidos.** Cada aviso reserva un documento `usuarios/{uid}/avisosEnviados/{clave}` con `create()` (atómico): si la función corre dos veces en la misma franja, la segunda no envía. Estos documentos crecen unos pocos por día; conviene una política TTL en Firestore más adelante.
+- **Código compartido, no duplicado.** `scripts/copiar-dominio.mjs` copia `lib/domain/{types,calendario,recurrencia,tareas,notificaciones}.ts` a `functions/src/dominio/` en el `prebuild` (carpeta ignorada por git). El cliente y el servidor deciden con el mismo código.
+- **Tokens inválidos se borran** de la cuenta cuando FCM los rechaza.
+- **Cada tipo se puede silenciar** en Ajustes (`ajustes.notificaciones.*`). Falta el aviso «2 días antes de cada envío» y «según anticipación de cada pedido»: llegan con envíos y pedidos (Fase 2).
+- **Requisito de cuenta:** guardar el token y los ajustes necesita que exista `usuarios/{uid}` (lo crea la Function de cuentas). Una cuenta sin ese documento ve el aviso y el botón queda bloqueado.
+- **iPhone:** las notificaciones solo funcionan con la app instalada en la pantalla de inicio (iOS 16.4+).
+- **Indicador de sincronización.** Antes perdía el conteo al recargar sin conexión. Ahora detecta cambios en cola de una sesión anterior con `waitForPendingWrites` y muestra «cambios por sincronizar» (sin número, que ya no se conoce).
+- **Verificado en emulador:** apertura de la app y de pantallas sin conexión; cambio hecho sin conexión llega al servidor ~0,4 s tras reconectar; la Function (franjas, dedupe, tokens inválidos, domingos y feriados). **No verificado:** entrega real de push (necesita VAPID y un navegador real).
+- **Intermitencia sin explicar.** En pruebas automatizadas de navegación completa sin conexión hacia `/agenda/` justo después de un cambio offline, ~5 de 17 corridas no mostraron el calendario (en una la página terminó en `/hoy/`). Las últimas 6 corridas seguidas pasaron. Abrir la app sin conexión (recarga de `/hoy/`) pasó siempre. Hipótesis: relevo del «líder» multi-pestaña de Firestore tras una recarga completa sin red. Pendiente de investigar con un dispositivo real.

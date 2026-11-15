@@ -12,3 +12,7 @@ functions/node_modules/
 serviceAccount*.json
 *-debug.log
 functions/src/dominio/
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
+public/serwist-*.js
