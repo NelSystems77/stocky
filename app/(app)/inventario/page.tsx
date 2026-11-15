@@ -115,6 +115,10 @@ export default function Inventario() {
             </div>
           </div>
 
+          <Link href="/inventario/agotados/" className="inline-flex min-h-11 items-center rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
+            Registro de agotados
+          </Link>
+
           <p className="text-xs text-text-muted">
             {filtrada.length} de {lista.length} productos
             {fechaReporte && <> · Reporte del {format(fechaReporte, "d 'de' MMM yyyy", { locale: es })}</>}

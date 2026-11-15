@@ -2,16 +2,18 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, PackageMinus, PackageX, Upload } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Card } from '@/components/ui/Card';
 import { SeccionTareasHoy } from '@/components/tareas/SeccionTareasHoy';
 import { ChipAlerta } from '@/components/ui/ChipAlerta';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { hoyCostaRica } from '@/lib/domain/calendario';
+import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirUltimaImportacion, type Importacion } from '@/lib/db/importaciones';
+import { estadoStock } from '@/lib/domain/stock';
 
 function saludo(ahora: Date): string {
   const hora = Number(
@@ -31,12 +33,27 @@ export default function Hoy() {
   const { estado } = useAuth();
   // `undefined` = todavía cargando; `null` = no hay importaciones.
   const [ultima, setUltima] = useState<Importacion | null | undefined>(undefined);
+  const [existencias, setExistencias] = useState<Existencia[] | undefined>(undefined);
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
 
   useEffect(() => {
     if (!uid) return;
-    return suscribirUltimaImportacion(uid, setUltima);
+    const bajas = [suscribirUltimaImportacion(uid, setUltima), suscribirExistencias(uid, setExistencias)];
+    return () => bajas.forEach((b) => b());
   }, [uid]);
+
+  // `null` mientras no haya existencias importadas (el chip muestra un guion, sin color de alerta).
+  const conteos = useMemo(() => {
+    if (!existencias || existencias.length === 0) return { agotados: null, bajos: null };
+    let agotados = 0;
+    let bajos = 0;
+    for (const p of existencias) {
+      const e = estadoStock(p);
+      if (e === 'agotado') agotados++;
+      else if (e === 'bajo') bajos++;
+    }
+    return { agotados, bajos };
+  }, [existencias]);
 
   if (estado.fase !== 'listo') return null;
   const { sesion } = estado;
@@ -49,7 +66,9 @@ export default function Hoy() {
     <Pantalla titulo={`${saludo(ahora)}, ${sesion.nombre.split(' ')[0] ?? ''}`}>
       <p className="-mt-3 text-sm text-text-muted first-letter:uppercase">{fecha}</p>
 
-      <section aria-label="Alertas" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section aria-label="Alertas" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <ChipAlerta href="/inventario/agotados/" etiqueta="Agotados" valor={conteos.agotados} tono="critical" icono={PackageX} />
+        <ChipAlerta href="/inventario/" etiqueta="Bajos" valor={conteos.bajos} tono="low" icono={PackageMinus} />
         <ChipAlerta href="/inventario/" etiqueta="Vencimientos" valor={null} tono="critical" icono={Clock} />
         <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={null} tono="warning" icono={AlertTriangle} />
         {es771 && (

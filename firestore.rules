@@ -82,8 +82,20 @@ service cloud.firestore {
       match /consumos/{id} {
         allow read, write: if accesoModulo(uid, 'inventario');
       }
+      // Registro de agotados: fechas civiles `YYYY-MM-DD`; `fechaIngreso` es null mientras siga agotado.
       match /agotados/{id} {
-        allow read, write: if accesoModulo(uid, 'agotados');
+        allow read, delete: if accesoModulo(uid, 'agotados');
+        allow create, update: if accesoModulo(uid, 'agotados')
+          && request.resource.data.codigo is string
+          && request.resource.data.codigo.size() > 0
+          && request.resource.data.fechaAgotado is string
+          && request.resource.data.fechaAgotado.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && (request.resource.data.fechaIngreso == null
+              || (request.resource.data.fechaIngreso is string
+                  && request.resource.data.fechaIngreso.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && request.resource.data.origen in ['detectado', 'manual']
+          && request.resource.data.notas is string
+          && request.resource.data.notas.size() <= 500;
       }
       // Plantillas de tareas (únicas o recurrentes). Lo hecho/pospuesto vive en `cumplimientos`.
       match /tareas/{id} {
