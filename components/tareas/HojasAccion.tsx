@@ -8,7 +8,7 @@ import { Hoja } from '@/components/ui/Hoja';
 import { siguienteDiaLaborable } from '@/lib/domain/calendario';
 import type { Ocurrencia } from '@/lib/domain/tareas';
 import type { FechaISO } from '@/lib/domain/types';
-import { FERIADOS } from '@/lib/tareas/useAgenda';
+import { useFeriados } from '@/lib/tareas/useFeriados';
 
 const larga = (f: FechaISO) => format(parseISO(f), "EEEE d 'de' MMMM", { locale: es });
 
@@ -20,7 +20,8 @@ interface PosponerProps {
 }
 
 export function HojaPosponer({ ocurrencia, hoy, alCerrar, alElegir }: PosponerProps) {
-  const manana = siguienteDiaLaborable(hoy, FERIADOS);
+  const feriados = useFeriados();
+  const manana = siguienteDiaLaborable(hoy, feriados);
   const [fecha, setFecha] = useState<FechaISO>('');
 
   function elegir(f: FechaISO) {

@@ -11,7 +11,7 @@ import { hoyCostaRica } from '@/lib/domain/calendario';
 import { vistaHoy, type Ocurrencia, type Tarea } from '@/lib/domain/tareas';
 import { tareasSugeridas } from '@/lib/domain/tareasSugeridas';
 import { useAcciones } from '@/lib/tareas/useAcciones';
-import { FERIADOS, useAgenda } from '@/lib/tareas/useAgenda';
+import { useAgenda } from '@/lib/tareas/useAgenda';
 import { FilaTarea } from './FilaTarea';
 import { HojaDescartar, HojaPosponer } from './HojasAccion';
 import { HojaTarea } from './HojaTarea';
@@ -19,7 +19,7 @@ import { HojaTarea } from './HojaTarea';
 export function SeccionTareasHoy() {
   const { estado } = useAuth();
   const { mostrar } = useToast();
-  const { uid, tareas, cumplimientos, cargando } = useAgenda();
+  const { uid, feriados, tareas, cumplimientos, cargando } = useAgenda();
   const acciones = useAcciones(uid, cumplimientos);
   const hoy = hoyCostaRica();
   const unidad = estado.fase === 'listo' ? estado.sesion.unidad : null;
@@ -28,7 +28,7 @@ export function SeccionTareasHoy() {
   const [descartando, setDescartando] = useState<Ocurrencia | null>(null);
   const [creando, setCreando] = useState(false);
 
-  const vista = useMemo(() => vistaHoy(tareas, cumplimientos, hoy, FERIADOS), [tareas, cumplimientos, hoy]);
+  const vista = useMemo(() => vistaHoy(tareas, cumplimientos, hoy, feriados), [tareas, cumplimientos, hoy, feriados]);
   const sugeridas = tareasSugeridas(unidad, hoy);
 
   function guardar(t: Tarea) {
