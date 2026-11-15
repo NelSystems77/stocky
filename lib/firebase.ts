@@ -1,4 +1,5 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
 import {
   connectFirestoreEmulator,
@@ -20,6 +21,9 @@ const config = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+/** Clave de sitio pública de reCAPTCHA Enterprise (App Check). Sin ella la app funciona, pero sin tokens. */
+const CLAVE_APP_CHECK = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
 const REGION_FUNCTIONS = 'us-central1';
 
 /** Solo para desarrollo y pruebas locales: `NEXT_PUBLIC_USE_EMULATORS=true` apunta a los emuladores de Firebase. */
@@ -33,7 +37,31 @@ export function firebaseApp(): FirebaseApp {
   if (!config.apiKey || !config.appId) {
     throw new Error('Falta la configuración de Firebase: copia .env.example a .env.local y complétala.');
   }
-  return getApps().length > 0 ? getApp() : initializeApp(config);
+  if (getApps().length > 0) return getApp();
+  const app = initializeApp(config);
+  iniciarAppCheck(app);
+  return app;
+}
+
+/**
+ * App Check: cada petición a Firebase lleva un token que prueba que viene de esta app y no de un script ajeno.
+ * Fase 1: solo se envía el token (la exigencia en el servidor se activa después, con métricas a la vista).
+ * El token se renueva solo en segundo plano: no bloquea escrituras ni lecturas sin conexión.
+ */
+function iniciarAppCheck(app: FirebaseApp): void {
+  if (typeof window === 'undefined' || !CLAVE_APP_CHECK || USAR_EMULADORES) return;
+  if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+    // Desarrollo local: reCAPTCHA no sirve en localhost; Firebase imprime un token de depuración en la consola.
+    (globalThis as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean | string }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(CLAVE_APP_CHECK),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch (e) {
+    console.warn('No se pudo iniciar App Check.', e);
+  }
 }
 
 let auth: Auth | undefined;
