@@ -10,3 +10,4 @@ firebase-debug.log
 functions/lib/
 functions/node_modules/
 serviceAccount*.json
+*-debug.log

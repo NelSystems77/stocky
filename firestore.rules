@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ───────── Helpers ─────────
+    function autenticado() {
+      return request.auth != null;
+    }
+    function esSuperadmin() {
+      return autenticado() && request.auth.token.role == 'superadmin';
+    }
+    function esDueno(uid) {
+      return autenticado() && request.auth.uid == uid;
+    }
+    function esUsuario() {
+      return autenticado() && request.auth.token.role == 'usuario';
+    }
+    function esUnidad771() {
+      return esUsuario() && request.auth.token.unidad == '771';
+    }
+    // La farmacia 772 solo ve Tareas, Agotados, Vencimientos y Reportes (+ sus datos de soporte),
+    // salvo módulos que el 771 le habilite en `modulosHabilitados`.
+    function modulosBase772() {
+      return ['tareas', 'agotados', 'inventario'];
+    }
+    function moduloHabilitado(uid, modulo) {
+      return modulo in get(/databases/$(database)/documents/usuarios/$(uid)).data.modulosHabilitados;
+    }
+    function puedeModulo(uid, modulo) {
+      return esUnidad771()
+        || (esUsuario() && request.auth.token.unidad == '772'
+            && (modulo in modulosBase772() || moduloHabilitado(uid, modulo)));
+    }
+    function accesoModulo(uid, modulo) {
+      return esSuperadmin() || (esDueno(uid) && puedeModulo(uid, modulo));
+    }
+    function soloCampos(permitidos) {
+      return request.resource.data.keys().hasOnly(permitidos);
+    }
+
+    // ───────── Catálogo compartido ─────────
+    // Lectura para autenticados. Los códigos nuevos solo se crean (nunca se editan ni borran)
+    // desde la importación validada; el resto lo gestiona el superadmin.
+    match /catalogo/{codigo} {
+      allow read: if autenticado();
+      allow create: if esUsuario()
+        && codigo.matches('^([0-9]-[0-9]{2}-[0-9]{2}-[0-9]{4}|[0-9]{3}-[0-9]{2}-[0-9]{4})$')
+        && soloCampos(['descripcion', 'ud', 'factorUnidad', 'nuevo', 'creadoEn'])
+        && request.resource.data.descripcion is string
+        && request.resource.data.descripcion.size() > 0
+        && request.resource.data.descripcion.size() <= 300
+        && request.resource.data.ud is string
+        && request.resource.data.factorUnidad is number
+        && request.resource.data.factorUnidad > 0
+        && request.resource.data.nuevo is bool;
+      allow update, delete: if esSuperadmin();
+    }
+
+    // ───────── Cuentas ─────────
+    // Los claims, `unidad` y `modulosHabilitados` solo los escribe una Cloud Function (Admin SDK).
+    match /usuarios/{uid} {
+      allow read: if esDueno(uid) || esSuperadmin();
+      allow update: if esDueno(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'ajustes', 'tokensFCM']);
+      allow create, delete: if false;
+
+      // ───────── Datos del usuario (solo el dueño o el superadmin) ─────────
+      match /importaciones/{id} {
+        allow read: if accesoModulo(uid, 'inventario');
+        allow create: if accesoModulo(uid, 'inventario')
+          && request.resource.data.tipoReporte is string
+          && request.resource.data.fechaReporte is timestamp;
+        allow update, delete: if accesoModulo(uid, 'inventario');
+      }
+      match /existencias/{codigo} {
+        allow read, write: if accesoModulo(uid, 'inventario');
+      }
+      match /lotes/{id} {
+        allow read, write: if accesoModulo(uid, 'inventario');
+      }
+      match /consumos/{id} {
+        allow read, write: if accesoModulo(uid, 'inventario');
+      }
+      match /agotados/{id} {
+        allow read, write: if accesoModulo(uid, 'agotados');
+      }
+      match /tareas/{id} {
+        allow read, delete: if accesoModulo(uid, 'tareas');
+        allow create, update: if accesoModulo(uid, 'tareas')
+          && request.resource.data.titulo is string
+          && request.resource.data.titulo.size() > 0
+          && request.resource.data.titulo.size() <= 200
+          && request.resource.data.estado in ['pendiente', 'hecha', 'pospuesta', 'descartada'];
+      }
+      match /tiposPedido/{id} {
+        allow read, write: if accesoModulo(uid, 'pedidos');
+      }
+      match /puestos/{id} {
+        allow read, write: if accesoModulo(uid, 'envios');
+      }
+      match /espacios/{id} {
+        allow read, write: if accesoModulo(uid, 'ubicaciones');
+      }
+      match /ubicaciones/{id} {
+        allow read, write: if accesoModulo(uid, 'ubicaciones');
+      }
+      match /precontEos/{id} {
+        allow read, write: if accesoModulo(uid, 'precontEo');
+      }
+      match /traslados/{id} {
+        allow read, delete: if accesoModulo(uid, 'traslados');
+        allow create, update: if accesoModulo(uid, 'traslados')
+          && request.resource.data.ordenSAP is string
+          && request.resource.data.ordenSAP.matches('^50000.*');
+      }
+      match /danados/{id} {
+        allow read, write: if accesoModulo(uid, 'danados');
+      }
+      match /changoIA/{id} {
+        allow read, write: if accesoModulo(uid, 'chango');
+      }
+    }
+
+    // Todo lo demás, denegado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
