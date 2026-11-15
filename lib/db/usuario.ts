@@ -1,6 +1,7 @@
 import { arrayRemove, arrayUnion, doc, onSnapshot, updateDoc, type Unsubscribe } from 'firebase/firestore';
 import type { FechaISO } from '@/lib/domain/types';
 import { normalizarFeriados } from '@/lib/domain/feriados';
+import { MARGEN_RIESGO_INICIAL, normalizarMargen } from '@/lib/domain/riesgo';
 import { AJUSTES_NOTIFICACIONES_INICIALES, type AjustesNotificaciones } from '@/lib/domain/notificaciones';
 import { firestore } from '@/lib/firebase';
 import { registrarEscritura } from './sync';
@@ -11,6 +12,8 @@ export interface DatosUsuario {
   notificaciones: AjustesNotificaciones;
   /** Feriados del usuario (`YYYY-MM-DD`, ordenados): no hay avisos ni recurrencias en esos días. */
   feriados: FechaISO[];
+  /** Días hábiles de margen sobre el próximo ingreso para marcar «riesgo» (regla A4). */
+  margenRiesgo: number;
   tokens: string[];
 }
 
@@ -20,15 +23,16 @@ export function suscribirUsuario(uid: string, alCambiar: (d: DatosUsuario) => vo
   return onSnapshot(
     ref(uid),
     (snap) => {
-      const datos = snap.data() as { ajustes?: { notificaciones?: Partial<AjustesNotificaciones>; feriados?: unknown }; tokensFCM?: unknown } | undefined;
+      const datos = snap.data() as { ajustes?: { notificaciones?: Partial<AjustesNotificaciones>; feriados?: unknown; umbrales?: { margenRiesgo?: unknown } }; tokensFCM?: unknown } | undefined;
       alCambiar({
         existe: snap.exists(),
         notificaciones: { ...AJUSTES_NOTIFICACIONES_INICIALES, ...datos?.ajustes?.notificaciones },
         feriados: normalizarFeriados(datos?.ajustes?.feriados),
+        margenRiesgo: normalizarMargen(datos?.ajustes?.umbrales?.margenRiesgo),
         tokens: Array.isArray(datos?.tokensFCM) ? datos.tokensFCM.filter((t): t is string => typeof t === 'string') : [],
       });
     },
-    () => alCambiar({ existe: false, notificaciones: AJUSTES_NOTIFICACIONES_INICIALES, feriados: [], tokens: [] }),
+    () => alCambiar({ existe: false, notificaciones: AJUSTES_NOTIFICACIONES_INICIALES, feriados: [], margenRiesgo: MARGEN_RIESGO_INICIAL, tokens: [] }),
   );
 }
 
@@ -40,6 +44,11 @@ export function guardarAjusteNotificacion(uid: string, clave: keyof AjustesNotif
 /** Reemplaza la lista de feriados (`ajustes.feriados`). Siempre se guarda normalizada. */
 export function guardarFeriados(uid: string, feriados: readonly FechaISO[]): Promise<void> {
   return registrarEscritura(updateDoc(ref(uid), { 'ajustes.feriados': normalizarFeriados([...feriados]) }));
+}
+
+/** Guarda el margen de riesgo (`ajustes.umbrales.margenRiesgo`), siempre normalizado. */
+export function guardarMargenRiesgo(uid: string, dias: number): Promise<void> {
+  return registrarEscritura(updateDoc(ref(uid), { 'ajustes.umbrales.margenRiesgo': normalizarMargen(dias) }));
 }
 
 export function agregarToken(uid: string, token: string): Promise<void> {

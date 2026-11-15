@@ -15,8 +15,9 @@ import { coincide } from '@/lib/domain/busqueda';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { estadoStock } from '@/lib/domain/stock';
 import { reporteBajos } from '@/lib/reports/construir';
+import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
-type Filtro = 'todos' | 'bajos' | 'agotados';
+type Filtro = 'todos' | 'bajos' | 'agotados' | 'riesgo';
 const PAGINA = 50;
 
 export default function Inventario() {
@@ -27,6 +28,7 @@ export default function Inventario() {
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [visibles, setVisibles] = useState(PAGINA);
   const buscar = useDeferredValue(consulta);
+  const { riesgos, hayConsumos } = useRiesgo(lista);
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
 
   useEffect(() => {
@@ -37,28 +39,38 @@ export default function Inventario() {
   const conteos = useMemo(() => {
     let bajos = 0;
     let agotados = 0;
+    let enRiesgo = 0;
     for (const p of lista ?? []) {
       const e = estadoStock(p);
       if (e === 'bajo') bajos++;
       else if (e === 'agotado') agotados++;
+      const n = riesgos.get(p.codigo)?.nivel;
+      if (n === 'critico' || n === 'riesgo') enRiesgo++;
     }
-    return { bajos, agotados };
-  }, [lista]);
+    return { bajos, agotados, enRiesgo };
+  }, [lista, riesgos]);
 
-  const filtrada = useMemo(
-    () =>
-      (lista ?? []).filter((p) => {
-        if (filtro !== 'todos' && estadoStock(p) !== (filtro === 'bajos' ? 'bajo' : 'agotado')) return false;
-        return coincide(buscar, p.codigo, p.descripcion);
-      }),
-    [lista, buscar, filtro],
-  );
+  const filtrada = useMemo(() => {
+    const coincidentes = (lista ?? []).filter((p) => {
+      if (filtro === 'riesgo') {
+        const n = riesgos.get(p.codigo)?.nivel;
+        if (n !== 'critico' && n !== 'riesgo') return false;
+      } else if (filtro !== 'todos' && estadoStock(p) !== (filtro === 'bajos' ? 'bajo' : 'agotado')) return false;
+      return coincide(buscar, p.codigo, p.descripcion);
+    });
+    // En riesgo: primero los que menos días alcanzan.
+    if (filtro === 'riesgo') {
+      coincidentes.sort((a, b) => (riesgos.get(a.codigo)?.cobertura ?? Infinity) - (riesgos.get(b.codigo)?.cobertura ?? Infinity));
+    }
+    return coincidentes;
+  }, [lista, buscar, filtro, riesgos]);
 
   if (estado.fase !== 'listo') return null;
 
   const fechaReporte = lista && lista.length > 0 ? new Date(Math.max(...lista.map((p) => p.actualizadoEn.toMillis()))) : undefined;
   const chips: { id: Filtro; etiqueta: string }[] = [
     { id: 'todos', etiqueta: `Todos (${lista?.length ?? 0})` },
+    { id: 'riesgo', etiqueta: `En riesgo (${conteos.enRiesgo})` },
     { id: 'bajos', etiqueta: `Bajos (${conteos.bajos})` },
     { id: 'agotados', etiqueta: `Agotados (${conteos.agotados})` },
   ];
@@ -133,6 +145,14 @@ export default function Inventario() {
             </section>
           )}
 
+          {filtro === 'riesgo' && (
+            <p className="rounded-2xl bg-surface p-3 text-xs text-text-muted">
+              {hayConsumos === false
+                ? 'Para calcular el riesgo importa el reporte «Productos en despacho» (trae el consumo).'
+                : 'Crítico: la existencia no alcanza hasta el próximo ingreso. En riesgo: alcanza, pero con pocos días de sobra. Se mide al día del último reporte, con el consumo diario promedio de las últimas 4 cargas.'}
+            </p>
+          )}
+
           <Link href="/inventario/agotados/" className="inline-flex min-h-11 items-center rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
             Registro de agotados
           </Link>
@@ -147,7 +167,7 @@ export default function Inventario() {
           ) : (
             <ul className="flex flex-col gap-2">
               {filtrada.slice(0, visibles).map((p) => (
-                <FilaProducto key={p.codigo} p={p} />
+                <FilaProducto key={p.codigo} p={p} riesgo={riesgos.get(p.codigo)} />
               ))}
             </ul>
           )}

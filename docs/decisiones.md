@@ -102,3 +102,13 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Lista de bajos:** del más escaso al menos escaso (existencia ÷ cuota mínima). Cantidades en la UD del producto; los agotados (existencia 0) no se incluyen, tienen su propio reporte.
 - **Reporte de agotados por período:** «esta semana» (de lunes a hoy), «este mes» (del día 1 a hoy) o personalizado. Incluye los registros que tocan el período: los que se agotaron en él y los que ya estaban agotados y siguieron así dentro de él.
 - **Pendiente:** el resumen mensual de labores (PRD §7) reutilizará este mismo generador.
+
+## 2026-11-15 · Riesgo de agotamiento (A3 y A4)
+
+- **Consumo = mes en curso.** Cada carga de «Productos en despacho» trae el consumo acumulado desde el día 1 del mes hasta la fecha del reporte, así que sus días hábiles van de esa fecha hacia atrás hasta el día 1. El consumo diario es la media móvil de las últimas 4 cargas (`lib/domain/riesgo.ts`).
+- **Riesgo medido al día del reporte de existencias**, no al de hoy: la cobertura se compara con los días hábiles que faltaban entonces para el segundo sábado. Así un reporte viejo no «regala» días. Si el reporte tiene más de unos días, la pantalla lo muestra en el encabezado («Reporte del …»).
+- **Niveles:** *Crítico* (A3) si la cobertura es menor que los días hábiles al próximo ingreso; *En riesgo* (A4) si alcanza pero con menos de `margen` días de sobra (7 por defecto, editable de 0 a 30 en Ajustes → `ajustes.umbrales.margenRiesgo`). Sin consumo: «sin datos de consumo», sin riesgo. Existencia 0: «agotado» (A6), no riesgo.
+- **Día del ingreso.** Si hoy (o el día del reporte) es el segundo sábado, los días al ingreso son 0: el producto no se marca crítico porque la mercadería llega ese mismo día.
+- **Lecturas acotadas.** Solo se leen los consumos de las últimas 4 cargas (se buscan en las 16 importaciones más recientes), no todo el historial, para cuidar las lecturas de Firestore. No hace falta un índice nuevo.
+- **Primeras semanas del mes.** Una carga de los primeros días del mes se basa en pocos días hábiles y es más ruidosa; la media móvil de 4 cargas la suaviza.
+- **Pendiente:** reporte PDF/Excel de «Bajos y riesgo» (PRD §7) y la alerta A8 (reporte desactualizado).

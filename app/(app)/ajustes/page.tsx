@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { guardarAjusteNotificacion, guardarFeriados, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
+import { guardarAjusteNotificacion, guardarFeriados, guardarMargenRiesgo, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
+import { MARGEN_RIESGO_MAXIMO } from '@/lib/domain/riesgo';
 import { agregarFeriado, esFechaValida, feriadosPorAnio, quitarFeriado } from '@/lib/domain/feriados';
 import type { FechaISO } from '@/lib/domain/types';
 import type { AjustesNotificaciones } from '@/lib/domain/notificaciones';
@@ -36,6 +37,7 @@ export default function Ajustes() {
   const [soportado, setSoportado] = useState<boolean | undefined>(undefined);
   const [ocupado, setOcupado] = useState(false);
   const [nueva, setNueva] = useState('');
+  const [margen, setMargen] = useState<string | null>(null);
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
 
   useEffect(() => {
@@ -196,6 +198,38 @@ export default function Ajustes() {
             </div>
           ))
         )}
+      </section>
+
+      <section aria-label="Alertas de riesgo" className="mt-8 flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Alertas de riesgo</h2>
+        <Card className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-sm">
+            Margen sobre el próximo ingreso (días hábiles)
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={MARGEN_RIESGO_MAXIMO}
+              disabled={!datos.existe}
+              value={margen ?? String(datos.margenRiesgo)}
+              onChange={(e) => setMargen(e.target.value)}
+              onBlur={() => {
+                if (margen === null) return;
+                const n = Number(margen);
+                setMargen(null);
+                if (!Number.isInteger(n) || n < 0 || n > MARGEN_RIESGO_MAXIMO) {
+                  mostrar(`Escribe un número entero de 0 a ${MARGEN_RIESGO_MAXIMO}.`, { tono: 'error' });
+                  return;
+                }
+                if (n !== datos.margenRiesgo) void guardarMargenRiesgo(uid, n).catch(() => mostrar('No se pudo guardar el ajuste.', { tono: 'error' }));
+              }}
+              className="min-h-11 w-full rounded-2xl bg-surface-2 px-4 text-text"
+            />
+          </label>
+          <p className="text-xs text-text-muted">
+            Un producto está <strong>crítico</strong> si la existencia no alcanza hasta el próximo ingreso (segundo sábado), y <strong>en riesgo</strong> si alcanza pero le sobran menos de estos días. Por defecto, 7.
+          </p>
+        </Card>
       </section>
 
       <section aria-label="Unidades de medida" className="mt-8 flex flex-col gap-3">
