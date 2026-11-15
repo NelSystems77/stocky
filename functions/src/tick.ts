@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { hoyCostaRica, sumarDias, ZONA } from './dominio/calendario.js';
 import {
   AJUSTES_NOTIFICACIONES_INICIALES,
+  expiraEnAviso,
   franjaDe,
   planificarAvisos,
   type AjustesNotificaciones,
@@ -53,6 +54,7 @@ const YA_EXISTE = 6; // código gRPC ALREADY_EXISTS
  * Una pasada del programador (cada 5 min): decide y envía los avisos que tocan en esta franja.
  * Cada aviso se reserva con un documento `avisosEnviados/{clave}` creado de forma atómica,
  * así que si la función corre dos veces en la misma franja no hay avisos repetidos.
+ * La marca caduca a los 14 días (`expiraEn`, política TTL) para que la colección no crezca sin límite.
  */
 export async function ejecutarTick(db: Firestore, enviar: Enviar, ahora: Date = new Date()): Promise<{ enviados: number }> {
   const hoy = hoyCostaRica(ahora);
@@ -87,7 +89,8 @@ export async function ejecutarTick(db: Firestore, enviar: Enviar, ahora: Date = 
     for (const aviso of planificarAvisos({ tareas, cumplimientos, hoy, franja, ajustes, feriados })) {
       const marca = u.ref.collection('avisosEnviados').doc(aviso.clave);
       try {
-        await marca.create({ enviadoEn: FieldValue.serverTimestamp() });
+        // `expiraEn` es el campo de la política TTL de Firestore (colección avisosEnviados).
+        await marca.create({ enviadoEn: FieldValue.serverTimestamp(), expiraEn: expiraEnAviso(ahora) });
       } catch (e) {
         if ((e as { code?: number }).code === YA_EXISTE) continue;
         throw e;

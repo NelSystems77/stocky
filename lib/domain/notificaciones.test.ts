@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AJUSTES_NOTIFICACIONES_INICIALES as TODO, franjaDe, planificarAvisos } from './notificaciones';
+import {
+  AJUSTES_NOTIFICACIONES_INICIALES as TODO,
+  DIAS_VIGENCIA_AVISO,
+  expiraEnAviso,
+  franjaDe,
+  planificarAvisos,
+} from './notificaciones';
 import type { Tarea } from './tareas';
 
 const t = (id: string, p: Partial<Tarea> = {}): Tarea => ({
@@ -69,5 +75,25 @@ describe('planificarAvisos', () => {
     expect(planificarAvisos({ ...base, hoy: '2026-11-21', franja: '07:00', tareas })).toEqual([]); // sáb (no es el 2.º)
     expect(planificarAvisos({ ...base, franja: '07:00', tareas, feriados: ['2026-11-12'] })).toEqual([]);
     expect(planificarAvisos({ ...base, hoy: '2026-11-14', franja: '07:00', tareas })).not.toEqual([]); // 2.º sábado
+  });
+});
+
+describe('expiraEnAviso', () => {
+  const ahora = new Date('2026-11-12T13:00:00Z');
+
+  it('caduca 14 días después por defecto', () => {
+    expect(DIAS_VIGENCIA_AVISO).toBe(14);
+    expect(expiraEnAviso(ahora).toISOString()).toBe('2026-11-26T13:00:00.000Z');
+  });
+
+  it('acepta otra vigencia y siempre queda en el futuro', () => {
+    expect(expiraEnAviso(ahora, 1).toISOString()).toBe('2026-11-13T13:00:00.000Z');
+    expect(expiraEnAviso(ahora).getTime()).toBeGreaterThan(ahora.getTime());
+  });
+
+  it('no modifica la fecha recibida', () => {
+    const copia = ahora.getTime();
+    expiraEnAviso(ahora);
+    expect(ahora.getTime()).toBe(copia);
   });
 });
