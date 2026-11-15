@@ -18,6 +18,7 @@ Si cualquier verificación falla, **no se despliega**.
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | Config web de la app (`appId`). |
 | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | Config web de la app (`measurementId`). Opcional. |
 | `NEXT_PUBLIC_FIREBASE_VAPID_KEY` | Console → Configuración del proyecto → Cloud Messaging → Certificados web push → Generar par de claves (clave **pública**). Sin ella no se pueden activar las notificaciones. |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clave de sitio (pública) de reCAPTCHA Enterprise registrada en App Check. Sin ella la app funciona, pero no envía tokens de App Check. |
 
 La config web es pública por diseño; igual va como secreto para no repetirla en el repo. Los valores fijos (`authDomain`, `projectId`, `storageBucket`, `messagingSenderId`) están en los workflows.
 Cuando llegue Chango IA se agrega `GEMINI_API_KEY` como secreto **de Functions** (`firebase functions:secrets:set`), no de GitHub.
@@ -42,7 +43,7 @@ El plan **Blaze** ya está activo (requerido por las Functions programadas).
 ## Pendiente antes de usarlo en producción real
 
 - **Restringir la API key web** (Google Cloud Console → Credenciales) a `stocky-bbda4.web.app`, `stocky-bbda4.firebaseapp.com`, `localhost` y, si se quiere probar vistas previas, `stocky-bbda4--*.web.app`.
-- **Activar App Check** (reCAPTCHA Enterprise) en Firestore, Storage y Functions. Requiere un cambio en el cliente: no está hecho todavía.
+- **App Check, fase 2 (exigirlo).** La fase 1 ya envía tokens desde el cliente (reCAPTCHA Enterprise, sin exigirlos). Cuando Firebase Console → App Check → Métricas muestre que casi todas las peticiones a Firestore, Storage y Functions traen token válido: poner `enforceAppCheck: true` en las callables y activar la exigencia en Firestore y Storage desde la consola. Exigirlo antes cortaría a quien tenga una versión vieja de la app guardada.
 - **Política TTL** para `usuarios/{uid}/avisosEnviados`: la Function guarda `expiraEn` (envío + 14 días) y la política se activa **una vez** sobre ese campo, después del primer despliegue con este cambio:
   `gcloud firestore fields ttls update expiraEn --collection-group=avisosEnviados --enable-ttl --project stocky-bbda4`
   (No usar `enviadoEn`: es una fecha pasada y el TTL borraría el aviso al instante, reenviándolo.)
