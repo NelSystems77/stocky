@@ -1,0 +1,75 @@
+name: Desplegar
+
+# Al fusionar en `main`: verifica y publica Hosting, reglas de Firestore/Storage y Functions.
+# El despliegue NO se hace desde la sesión de Claude: solo desde aquí.
+on:
+  push:
+    branches: [main]
+
+# Un despliegue a la vez; uno en curso no se cancela a medias.
+concurrency:
+  group: desplegar-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PROYECTO: stocky-bbda4
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Instalar dependencias
+        run: |
+          npm ci
+          npm --prefix functions ci
+
+      - name: Revisar código
+        run: |
+          npm run lint
+          npm run typecheck:sw
+          npm test
+
+      - name: Compilar la app (sitio estático en /out)
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: stocky-bbda4.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: stocky-bbda4
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: stocky-bbda4.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "316940592609"
+        run: |
+          test -n "$NEXT_PUBLIC_FIREBASE_API_KEY" || { echo "::error::Falta el secreto NEXT_PUBLIC_FIREBASE_API_KEY"; exit 1; }
+          test -n "$NEXT_PUBLIC_FIREBASE_APP_ID" || { echo "::error::Falta el secreto NEXT_PUBLIC_FIREBASE_APP_ID"; exit 1; }
+          npm run build
+
+      - name: Preparar credenciales de Firebase
+        env:
+          CUENTA_DE_SERVICIO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STOCKY_BBDA4 }}
+        run: |
+          test -n "$CUENTA_DE_SERVICIO" || { echo "::error::Falta el secreto FIREBASE_SERVICE_ACCOUNT_STOCKY_BBDA4"; exit 1; }
+          printf '%s' "$CUENTA_DE_SERVICIO" > "$RUNNER_TEMP/cuenta-de-servicio.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/cuenta-de-servicio.json" >> "$GITHUB_ENV"
+
+      # `functions` ejecuta su `predeploy` (firebase.json): copia el dominio compartido y compila con tsc.
+      - name: Desplegar Hosting, reglas y Functions
+        run: npx -y firebase-tools@15 deploy --project "$PROYECTO" --only hosting,firestore,storage,functions --non-interactive
+
+      - name: Borrar credenciales
+        if: always()
+        run: rm -f "$RUNNER_TEMP/cuenta-de-servicio.json"

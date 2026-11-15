@@ -1,0 +1,65 @@
+name: Vista previa
+
+# En cada pull request: verifica y publica un canal de vista previa de Hosting (vence a los 7 días).
+# Solo Hosting: la vista previa no toca reglas, Functions ni datos de producción.
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: vista-previa-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  vista-previa:
+    # Los PR desde forks no reciben secretos: ahí solo corre la verificación.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
+
+      - name: Instalar dependencias
+        run: |
+          npm ci
+          npm --prefix functions ci
+
+      - name: Revisar código
+        run: |
+          npm run lint
+          npm run typecheck:sw
+          npm test
+          npm --prefix functions run typecheck
+
+      - name: Compilar la app
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+          NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: stocky-bbda4.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: stocky-bbda4
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: stocky-bbda4.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "316940592609"
+        run: npm run build
+
+      - name: Publicar vista previa
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_STOCKY_BBDA4 }}
+          projectId: stocky-bbda4
+          expires: 7d
