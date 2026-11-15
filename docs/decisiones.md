@@ -80,3 +80,16 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Corrección de un error mío:** en `firestore.rules` el módulo de preconteo estaba escrito `precontEo` / colección `precontEos`. Ahora es `preconteo` / `preconteos` (como el PRD).
 - **La gestión de cuentas requiere conexión** (así lo dice `CLAUDE.md` §6): sin red los botones se deshabilitan con un aviso claro.
 - **Probado en emulador de punta a punta** (Auth + Firestore + Functions): crear cuenta por la interfaz, módulos, contraseña nueva (la anterior deja de servir), desactivar/reactivar (mensaje claro al intentar entrar) y 12 protecciones del servidor llamando directo a las Functions.
+
+## 2026-11-15 · Fase 2: agotados y bajos (primer bloque)
+
+- **Orden de la Fase 2.** Se empieza por agotados y bajos (usan solo la existencia ya importada). Después, pedidos y envíos. Riesgo (A3/A4) y vencimientos (A1/A2) quedan para cuando haya consumo confirmado y un PDF real de lotes.
+- **Período del consumo (RptSIFA032): mes en curso.** Se confirmó con la persona usuaria. Cuando se construya el riesgo, el consumo diario = consumo ÷ días hábiles transcurridos del mes hasta la fecha del reporte.
+- **Agotados se confirman con un toque** (RF-3.3): la pantalla propone los productos con cuota > 0 y existencia 0 y la persona los confirma uno a uno o todos. No se crean solos.
+- **Fechas del registro como `YYYY-MM-DD`** (`fechaAgotado`, `fechaIngreso`), no `Timestamp`: son fechas civiles, igual que en las tareas. El campo de observaciones se llama `notas`, como en el PRD §9.
+- **Fecha de agotamiento = fecha del reporte** donde se vio la existencia en 0 (no la fecha en que se confirmó).
+- **El registro se cierra solo** cuando un reporte posterior trae existencia > 0; `fechaIngreso` es la fecha de ese reporte. Se hace al abrir la pantalla de Agotados (es idempotente), no durante la importación.
+- **Días agotado en días calendario**, hasta el ingreso o hasta hoy si sigue agotado.
+- **Un producto que vuelve a agotarse** genera un registro nuevo; el anterior queda en el historial.
+- **Chips en Hoy:** Agotados y Bajos se cuentan desde la existencia importada (no desde el registro), con guion mientras no haya existencias.
+- **Pendiente de este bloque:** exportar a PDF/Excel la lista de bajos y el reporte de agotados (RF-3.2, RF-3.5) y el alta manual de un agotado.
