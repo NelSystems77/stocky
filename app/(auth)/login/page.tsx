@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Eye, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -19,6 +20,7 @@ export default function Login() {
   const { estado, iniciarSesion } = useAuth();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [verClave, setVerClave] = useState(false);
   const {
     register,
     handleSubmit,
@@ -56,11 +58,31 @@ export default function Login() {
           {errors.correo && <span className="text-xs text-critical">{errors.correo.message}</span>}
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
-          Contraseña
-          <input type="password" autoComplete="current-password" className={campo} {...register('clave')} />
+        <div className="flex flex-col gap-1 text-sm">
+          <label htmlFor="clave">Contraseña</label>
+          <div className="relative">
+            <input
+              id="clave"
+              type={verClave ? 'text' : 'password'}
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className={`${campo} pr-12`}
+              {...register('clave')}
+            />
+            <button
+              type="button"
+              onClick={() => setVerClave((v) => !v)}
+              aria-label={verClave ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              aria-pressed={verClave}
+              className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-2xl text-text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              {verClave ? <EyeOff className="size-5" aria-hidden /> : <Eye className="size-5" aria-hidden />}
+            </button>
+          </div>
           {errors.clave && <span className="text-xs text-critical">{errors.clave.message}</span>}
-        </label>
+        </div>
 
         <label className="flex min-h-11 items-center gap-2 text-sm text-text-muted">
           <input type="checkbox" className="size-5 accent-accent" {...register('recordarme')} />
