@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, LogOut, Settings, Upload, type LucideIcon } from 'lucide-react';
+import { FileText, LogOut, Settings, ShieldCheck, Upload, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Button } from '@/components/ui/Button';
@@ -25,7 +25,7 @@ export default function Mas() {
         </p>
       </Card>
       <nav className="flex flex-col gap-2">
-        {ENLACES.map(({ href, etiqueta, icono: Icono }) => (
+        {(estado.sesion.rol === 'superadmin' ? [{ href: '/admin/', etiqueta: 'Administración de cuentas', icono: ShieldCheck }, ...ENLACES] : ENLACES).map(({ href, etiqueta, icono: Icono }) => (
           <Link key={href} href={href} className="flex min-h-12 items-center gap-3 rounded-2xl bg-surface px-4 text-sm">
             <Icono aria-hidden className="size-5 text-text-muted" />
             {etiqueta}

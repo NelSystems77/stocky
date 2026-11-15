@@ -16,13 +16,14 @@ const Unidad = z.enum(['771', '772']);
 const Peticion = z.discriminatedUnion('accion', [
   z.object({
     accion: z.literal('crear'),
-    email: z.string().email(),
+    email: z.string().trim().toLowerCase().email(),
     password: z.string().min(8).max(128),
     nombre: z.string().trim().min(1).max(100),
     unidad: Unidad,
   }),
   z.object({ accion: z.literal('activar'), uid: z.string().min(1), activo: z.boolean() }),
   z.object({ accion: z.literal('restablecer'), uid: z.string().min(1) }),
+  z.object({ accion: z.literal('nuevaClave'), uid: z.string().min(1), password: z.string().min(8).max(128) }),
 ]);
 
 /**
@@ -41,6 +42,18 @@ export const gestionarCuentas = onCall(async (req) => {
 
   const auth = getAuth();
   const db = getFirestore();
+
+  // Las acciones sobre una cuenta existente solo valen para cuentas de usuario (771/772):
+  // el superadmin no puede desactivarse a sí mismo ni tocar a otro superadmin.
+  if (datos.accion !== 'crear') {
+    if (datos.uid === req.auth.uid) throw new HttpsError('failed-precondition', 'No puedes aplicar esto a tu propia cuenta.');
+    const objetivo = await auth.getUser(datos.uid).catch(() => {
+      throw new HttpsError('not-found', 'No existe esa cuenta.');
+    });
+    if (objetivo.customClaims?.['role'] !== 'usuario') {
+      throw new HttpsError('failed-precondition', 'Solo se gestionan cuentas de usuario (771 y 772).');
+    }
+  }
 
   switch (datos.accion) {
     case 'crear': {
@@ -70,6 +83,11 @@ export const gestionarCuentas = onCall(async (req) => {
       await db.doc(`usuarios/${datos.uid}`).update({ activo: datos.activo });
       return { ok: true };
     }
+    case 'nuevaClave': {
+      await auth.updateUser(datos.uid, { password: datos.password });
+      await auth.revokeRefreshTokens(datos.uid); // cierra las sesiones abiertas con la contraseña anterior
+      return { ok: true };
+    }
     case 'restablecer': {
       const usuario = await auth.getUser(datos.uid);
       if (!usuario.email) throw new HttpsError('failed-precondition', 'La cuenta no tiene correo.');
@@ -77,6 +95,39 @@ export const gestionarCuentas = onCall(async (req) => {
       return { enlace };
     }
   }
+});
+
+/** Módulos que el 771 (o el superadmin) puede habilitarle a la farmacia 772. Deben coincidir con `firestore.rules`. */
+const MODULOS_HABILITABLES = ['pedidos', 'envios', 'ubicaciones', 'preconteo', 'traslados', 'danados', 'chango'] as const;
+
+const PeticionModulos = z.object({
+  uid: z.string().min(1),
+  modulos: z.array(z.enum(MODULOS_HABILITABLES)).max(MODULOS_HABILITABLES.length),
+});
+
+/**
+ * Habilita módulos a una cuenta 772. Lo pueden hacer el superadmin y el usuario 771
+ * (los clientes no pueden escribir `modulosHabilitados`: solo esta Function).
+ */
+export const habilitarModulos = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar.');
+  const rol = req.auth.token['role'];
+  const esSuper = rol === 'superadmin';
+  const es771 = rol === 'usuario' && req.auth.token['unidad'] === '771';
+  if (!esSuper && !es771) throw new HttpsError('permission-denied', 'No tienes permiso para habilitar módulos.');
+
+  const parsed = PeticionModulos.safeParse(req.data);
+  if (!parsed.success) throw new HttpsError('invalid-argument', 'Datos inválidos.');
+
+  const objetivo = await getAuth().getUser(parsed.data.uid).catch(() => {
+    throw new HttpsError('not-found', 'No existe esa cuenta.');
+  });
+  if (objetivo.customClaims?.['role'] !== 'usuario' || objetivo.customClaims['unidad'] !== '772') {
+    throw new HttpsError('failed-precondition', 'Solo se habilitan módulos a cuentas de la farmacia 772.');
+  }
+  const modulos = [...new Set(parsed.data.modulos)];
+  await getFirestore().doc(`usuarios/${objetivo.uid}`).update({ modulosHabilitados: modulos });
+  return { modulos };
 });
 
 const URL_APP = 'https://stocky-bbda4.web.app';

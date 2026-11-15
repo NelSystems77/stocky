@@ -7,7 +7,7 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
-import { getFunctions, type Functions } from 'firebase/functions';
+import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
 
 // Se referencian de forma estática para que Next las incruste en el build.
 const config = {
@@ -59,6 +59,12 @@ export function firestore(): Firestore {
   return db;
 }
 
+let funciones: Functions | undefined;
+
 export function firebaseFunctions(): Functions {
-  return getFunctions(firebaseApp(), REGION_FUNCTIONS);
+  if (!funciones) {
+    funciones = getFunctions(firebaseApp(), REGION_FUNCTIONS);
+    if (USAR_EMULADORES) connectFunctionsEmulator(funciones, '127.0.0.1', 5001);
+  }
+  return funciones;
 }

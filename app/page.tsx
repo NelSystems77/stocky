@@ -18,11 +18,13 @@ export default function Inicio() {
     return () => clearTimeout(t);
   }, []);
 
+  const destino = estado.fase === 'listo' ? (estado.sesion.rol === 'superadmin' ? '/admin/' : '/hoy/') : null;
+
   useEffect(() => {
     if (!splashListo) return;
-    if (estado.fase === 'listo') router.replace('/hoy/');
+    if (destino) router.replace(destino);
     else if (estado.fase === 'sin-sesion') router.replace('/login/');
-  }, [splashListo, estado.fase, router]);
+  }, [splashListo, destino, estado.fase, router]);
 
   if (estado.fase === 'error-config') {
     return (

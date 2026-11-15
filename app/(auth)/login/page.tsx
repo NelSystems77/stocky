@@ -25,9 +25,11 @@ export default function Login() {
     formState: { errors, isSubmitting },
   } = useForm<Datos>({ resolver: zodResolver(Esquema), defaultValues: { recordarme: true } });
 
+  const destino = estado.fase === 'listo' ? (estado.sesion.rol === 'superadmin' ? '/admin/' : '/hoy/') : null;
+
   useEffect(() => {
-    if (estado.fase === 'listo') router.replace('/hoy/');
-  }, [estado.fase, router]);
+    if (destino) router.replace(destino);
+  }, [destino, router]);
 
   async function enviar(d: Datos) {
     setError(null);

@@ -120,8 +120,8 @@ service cloud.firestore {
       match /ubicaciones/{id} {
         allow read, write: if accesoModulo(uid, 'ubicaciones');
       }
-      match /precontEos/{id} {
-        allow read, write: if accesoModulo(uid, 'precontEo');
+      match /preconteos/{id} {
+        allow read, write: if accesoModulo(uid, 'preconteo');
       }
       match /traslados/{id} {
         allow read, delete: if accesoModulo(uid, 'traslados');
