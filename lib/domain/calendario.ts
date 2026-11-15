@@ -72,3 +72,23 @@ export function diasHabilesEntre(desde: FechaISO, hasta: FechaISO, feriados: rea
 export function diasHabilesAlIngreso(hoy: FechaISO, feriados: readonly FechaISO[] = []): number {
   return diasHabilesEntre(sumarDias(hoy, 1), proximoIngreso(hoy), feriados);
 }
+
+/** Siguiente día laborable estrictamente posterior a `fecha` (para «posponer a mañana»). */
+export function siguienteDiaLaborable(fecha: FechaISO, feriados: readonly FechaISO[] = []): FechaISO {
+  let f = sumarDias(fecha, 1);
+  for (let i = 0; i < 14 && !esDiaLaborable(f, feriados); i++) f = sumarDias(f, 1);
+  return f;
+}
+
+/** Lunes de la semana que contiene `fecha` (la semana laboral empieza en lunes). */
+export function inicioSemana(fecha: FechaISO): FechaISO {
+  const d = diaSemana(fecha);
+  return sumarDias(fecha, d === 0 ? -6 : 1 - d);
+}
+
+/** Rango de la cuadrícula de un mes: del lunes anterior (o igual) al día 1, hasta el domingo posterior al último día. */
+export function rangoCuadriculaMes(anio: number, mes: number): { desde: FechaISO; hasta: FechaISO } {
+  const primero = `${anio}-${String(mes).padStart(2, '0')}-01`;
+  const ultimo = deUTC(Date.UTC(anio, mes, 0));
+  return { desde: inicioSemana(primero), hasta: sumarDias(inicioSemana(ultimo), 6) };
+}

@@ -40,3 +40,15 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Cantidades mostradas en la UD del producto** (`474 CN`) y, si la UD no vale 1, también en unidades sueltas (`47 400 u`). Internamente siempre unidades base.
 - **Búsqueda sin tildes ni guiones**, por código o por nombre; todas las palabras deben coincidir. Los códigos que vienen con descripción partida solo se encuentran por el texto visible.
 - **Verificado contra el PDF real (1039 productos):** 215 agotados y 154 bajos.
+
+## 2026-11-15 · Tareas y agenda (paso 6a)
+
+- **Cambio respecto al modelo de datos del PRD §9.** El PRD pone `estado` y `fechaObjetivo` en cada tarea. Aquí cada tarea es una **plantilla** (`tareas/{id}`: título, recurrencia, hora, prioridad, notas, activa, desde) y lo que pasó con cada ocurrencia se guarda en `cumplimientos/{tareaId}_{fecha}` (`hecha` · `pospuesta` con `fechaProgramada` · `descartada` con `motivo`). Motivo: funciona sin conexión, las ocurrencias no se duplican y no hace falta una Function que las genere.
+- **Las ocurrencias se calculan, no se almacenan.** `lib/domain/tareas.ts` las deriva de la plantilla y el calendario laboral. Una recurrente no genera pendientes anteriores a su creación (`desde`).
+- **Pendientes de días anteriores:** ventana de 30 días. Lo no hecho más viejo que eso deja de mostrarse (no se borra).
+- **Posponer** manda a la nueva fecha; la ocurrencia original ya no aparece en su día. «Próximo día laboral» salta fines de semana, sábados que no son el 2.º y feriados.
+- **Tareas sugeridas (RF-7.2), solo 771:** Temperatura AM, Temperatura PM, Cargar reportes (jueves 07:00), Preconteo (L-Mi-J-V) y Revisar traslados pendientes (diaria; nota de los martes). El PRD no da horas para temperatura ni preconteo: quedan **sin hora**, editables. Para el 772 no se precarga nada. Se siembran a pedido, con IDs fijos (no se duplican).
+- **Feriados:** `FERIADOS` está vacío hasta que exista Ajustes. Ya lo respetan recurrencias y «próximo día laboral».
+- **Calendario:** día, semana (empieza en lunes) y mes. Marca el segundo sábado como «Ingreso de mercadería». En esta versión es de solo lectura: las tareas se cierran desde Hoy. Pedidos y envíos se suman en la Fase 2.
+- **Gestos en celular:** deslizar a la derecha completa, a la izquierda pospone (umbral 90 px). Probado con eventos táctiles reales.
+- **Pendiente:** notificaciones push (7:00 / 12:00 y por hora de tarea), que requieren Functions programadas, plan Blaze y el service worker del PWA.

@@ -25,7 +25,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const mostrar = useCallback<Contexto['mostrar']>(
     (mensaje, opciones) => {
       const id = Date.now() + Math.random();
-      setAvisos((a) => [...a, { id, mensaje, tono: opciones?.tono ?? 'info', accion: opciones?.accion }]);
+      setAvisos((a) => [...a.slice(-1), { id, mensaje, tono: opciones?.tono ?? 'info', accion: opciones?.accion }]);
       setTimeout(() => cerrar(id), DURACION_MS);
     },
     [cerrar],

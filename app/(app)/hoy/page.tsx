@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Card } from '@/components/ui/Card';
+import { SeccionTareasHoy } from '@/components/tareas/SeccionTareasHoy';
 import { ChipAlerta } from '@/components/ui/ChipAlerta';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { hoyCostaRica } from '@/lib/domain/calendario';
@@ -86,10 +87,7 @@ export default function Hoy() {
         </Card>
       )}
 
-      <section aria-label="Tareas de hoy">
-        <h2 className="mb-2 text-lg font-semibold">Tareas de hoy</h2>
-        <Card className="text-sm text-text-muted">No hay tareas para hoy.</Card>
-      </section>
+      <SeccionTareasHoy />
     </Pantalla>
   );
 }

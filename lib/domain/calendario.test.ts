@@ -51,3 +51,27 @@ describe('hoyCostaRica', () => {
     expect(hoyCostaRica(new Date('2026-11-15T06:00:00Z'))).toBe('2026-11-15');
   });
 });
+
+import { inicioSemana, rangoCuadriculaMes } from './calendario';
+import { describirRecurrencia } from './recurrenciaTexto';
+
+describe('semana y cuadrícula de mes', () => {
+  it('la semana empieza en lunes (el domingo pertenece a la semana anterior)', () => {
+    expect(inicioSemana('2026-11-12')).toBe('2026-11-09'); // jueves
+    expect(inicioSemana('2026-11-09')).toBe('2026-11-09'); // lunes
+    expect(inicioSemana('2026-11-15')).toBe('2026-11-09'); // domingo
+  });
+  it('cuadrícula de noviembre 2026: lun 26-oct a dom 6-dic', () => {
+    expect(rangoCuadriculaMes(2026, 11)).toEqual({ desde: '2026-10-26', hasta: '2026-12-06' });
+  });
+});
+
+describe('describirRecurrencia', () => {
+  it('describe cada tipo', () => {
+    expect(describirRecurrencia({ tipo: 'diaria' })).toBe('Todos los días laborables');
+    expect(describirRecurrencia({ tipo: 'diasSemana', dias: [5, 1, 3] })).toBe('Cada lun, mié, vie');
+    expect(describirRecurrencia({ tipo: 'quincenal', dia: 4, ancla: '2026-11-12' })).toBe('Cada 2 semanas (jueves)');
+    expect(describirRecurrencia({ tipo: 'mensual', diaMes: 15 })).toBe('Cada mes, el día 15');
+    expect(describirRecurrencia({ tipo: 'segundoSabado' })).toBe('Cada segundo sábado');
+  });
+});
