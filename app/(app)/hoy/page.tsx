@@ -14,6 +14,7 @@ import { hoyCostaRica } from '@/lib/domain/calendario';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirUltimaImportacion, type Importacion } from '@/lib/db/importaciones';
 import { estadoStock } from '@/lib/domain/stock';
+import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
 function saludo(ahora: Date): string {
   const hora = Number(
@@ -42,6 +43,8 @@ export default function Hoy() {
     return () => bajas.forEach((b) => b());
   }, [uid]);
 
+  const { riesgos, hayConsumos } = useRiesgo(existencias);
+
   // `null` mientras no haya existencias importadas (el chip muestra un guion, sin color de alerta).
   const conteos = useMemo(() => {
     if (!existencias || existencias.length === 0) return { agotados: null, bajos: null };
@@ -54,6 +57,14 @@ export default function Hoy() {
     }
     return { agotados, bajos };
   }, [existencias]);
+
+  // `null` sin consumos importados: no se calcula riesgo.
+  const enRiesgo = useMemo(() => {
+    if (!hayConsumos) return null;
+    let n = 0;
+    for (const a of riesgos.values()) if (a.nivel === 'critico' || a.nivel === 'riesgo') n++;
+    return n;
+  }, [riesgos, hayConsumos]);
 
   if (estado.fase !== 'listo') return null;
   const { sesion } = estado;
@@ -70,7 +81,7 @@ export default function Hoy() {
         <ChipAlerta href="/inventario/agotados/" etiqueta="Agotados" valor={conteos.agotados} tono="critical" icono={PackageX} />
         <ChipAlerta href="/inventario/" etiqueta="Bajos" valor={conteos.bajos} tono="low" icono={PackageMinus} />
         <ChipAlerta href="/inventario/" etiqueta="Vencimientos" valor={null} tono="critical" icono={Clock} />
-        <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={null} tono="warning" icono={AlertTriangle} />
+        <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={enRiesgo} tono="warning" icono={AlertTriangle} />
         {es771 && (
           <ChipAlerta href="/registros/" etiqueta="Traslados pendientes" valor={null} tono="info" icono={ArrowRightLeft} />
         )}

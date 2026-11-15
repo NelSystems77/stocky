@@ -1,10 +1,12 @@
 import type { Existencia } from '@/lib/db/existencias';
 import { formatearEnUD, formatearNumero, tieneFactor } from '@/lib/domain/formato';
+import type { AnalisisRiesgo } from '@/lib/domain/riesgo';
 import { estadoStock } from '@/lib/domain/stock';
 import { deUnidadesBase } from '@/lib/domain/unidades';
 
-export function FilaProducto({ p }: { p: Existencia }) {
+export function FilaProducto({ p, riesgo }: { p: Existencia; riesgo?: AnalisisRiesgo }) {
   const estado = estadoStock(p);
+  const nivel = riesgo?.nivel;
   const enUD = (n: number | undefined) => (n === undefined ? '—' : formatearNumero(deUnidadesBase(n, p.ud)));
 
   return (
@@ -19,11 +21,22 @@ export function FilaProducto({ p }: { p: Existencia }) {
           {estado === 'bajo' && (
             <span className="rounded-md bg-low/15 px-1.5 py-0.5 text-[10px] font-semibold text-low">Bajo</span>
           )}
+          {nivel === 'critico' && (
+            <span className="rounded-md bg-critical/15 px-1.5 py-0.5 text-[10px] font-semibold text-critical">Crítico</span>
+          )}
+          {nivel === 'riesgo' && (
+            <span className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">En riesgo</span>
+          )}
         </p>
         <p className="truncate text-sm">{p.descripcion}</p>
         <p className="mt-0.5 text-xs text-text-muted">
           Cuota {enUD(p.cuota)} · Mín. {enUD(p.cuotaMinima)}
         </p>
+        {riesgo && riesgo.cobertura !== null && riesgo.nivel !== 'agotado' && (
+          <p className="text-xs text-text-muted">
+            Alcanza ~{formatearNumero(Math.floor(riesgo.cobertura))} días hábiles · ingreso en {riesgo.diasAlIngreso}
+          </p>
+        )}
       </div>
       <div className="shrink-0 text-right">
         <p className={`text-lg font-semibold tabular-nums ${estado === 'agotado' ? 'text-critical' : ''}`}>
