@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ocurreEn, proximaOcurrencia } from './recurrencia';
+import type { Recurrencia } from './types';
 
 describe('recurrencias', () => {
   it('diaria solo en días laborables', () => {
@@ -8,7 +9,7 @@ describe('recurrencias', () => {
     expect(ocurreEn({ tipo: 'diaria' }, '2026-11-17', ['2026-11-17'])).toBe(false);
   });
   it('días específicos (L-Mi-J-V)', () => {
-    const rec = { tipo: 'diasSemana', dias: [1, 3, 4, 5] } as const;
+    const rec: Recurrencia = { tipo: 'diasSemana', dias: [1, 3, 4, 5] };
     expect(ocurreEn(rec, '2026-11-16')).toBe(true); // lunes
     expect(ocurreEn(rec, '2026-11-17')).toBe(false); // martes
   });
