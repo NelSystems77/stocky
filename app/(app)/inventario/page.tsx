@@ -6,12 +6,15 @@ import { Search, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { FilaProducto } from '@/components/inventario/FilaProducto';
+import { BotonesExportar } from '@/components/reportes/BotonesExportar';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { coincide } from '@/lib/domain/busqueda';
+import { hoyCostaRica } from '@/lib/domain/calendario';
 import { estadoStock } from '@/lib/domain/stock';
+import { reporteBajos } from '@/lib/reports/construir';
 
 type Filtro = 'todos' | 'bajos' | 'agotados';
 const PAGINA = 50;
@@ -114,6 +117,21 @@ export default function Inventario() {
               ))}
             </div>
           </div>
+
+          {filtro === 'bajos' && conteos.bajos > 0 && (
+            <section aria-label="Exportar bajos" className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
+              <p className="text-sm">Lista de productos bajos ({conteos.bajos})</p>
+              <BotonesExportar
+                armar={() =>
+                  reporteBajos(lista, fechaReporte ? hoyCostaRica(fechaReporte) : null, {
+                    usuario: estado.sesion.nombre,
+                    unidad: estado.sesion.unidad ?? '',
+                    generadoEn: new Date(),
+                  })
+                }
+              />
+            </section>
+          )}
 
           <Link href="/inventario/agotados/" className="inline-flex min-h-11 items-center rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
             Registro de agotados
