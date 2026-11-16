@@ -112,3 +112,16 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Lecturas acotadas.** Solo se leen los consumos de las últimas 4 cargas (se buscan en las 16 importaciones más recientes), no todo el historial, para cuidar las lecturas de Firestore. No hace falta un índice nuevo.
 - **Primeras semanas del mes.** Una carga de los primeros días del mes se basa en pocos días hábiles y es más ruidosa; la media móvil de 4 cargas la suaviza.
 - **Pendiente:** reporte PDF/Excel de «Bajos y riesgo» (PRD §7) y la alerta A8 (reporte desactualizado).
+
+## 2026-11-16 · PRD en el repo y pendientes de Fase 2
+
+- **`docs/PRD.md` ya vive en el repositorio** (copia del documento de Claude Docs). Es la fuente de verdad de qué construir.
+- **Fase 3 (registros)** se desarrolla en orden: dañados (M10) → preconteo (M8) → traslados (M9) → reportes y resumen mensual (§7). Rama `fase-3-registros`, base `feat-riesgo-agotamiento` (aún sin fusionar).
+- **Pendientes de Fase 2 que NO se pierden** (se retoman después, o en el momento en que un bloque de Fase 3 los necesite):
+  - Vencimientos A1/A2 (M2): falta un PDF real de lotes y vencimientos.
+  - Agenda de pedidos (M4) y envíos a puestos (M5); día de envío a V por confirmar.
+  - Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
+  - Alerta A8 (reporte desactualizado).
+  - Alta manual de un agotado (RF-3.4).
+  - Pantalla para que el 771 habilite módulos al 772 y navegación del 772 con los módulos habilitados.
+  - Seguridad: exigir App Check (`enforceAppCheck`) tras revisar métricas, solo con visto bueno.
