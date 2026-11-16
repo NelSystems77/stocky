@@ -136,3 +136,15 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Reglas de Firestore** de `danados` ahora validan campos (antes solo permiso por módulo). **No probadas aún en el emulador.**
 - **Arreglo local:** `components/layout/navegacion.ts` se renombró a `itemsNavegacion.ts`; en Windows chocaba con `Navegacion.tsx` y rompía `npm run build` (en Linux/CI no).
 - **Pendiente del bloque:** editar observaciones de un dañado ya guardado, y probar subida/lectura de fotos contra el emulador de Storage.
+
+## 2026-11-16 · Fase 3, bloque 2: Preconteo (M8)
+
+- **Cantidad entregada en la UD del producto** (cientos para `CN`), como lo pidió la persona usuaria: `5` CN = `500` unidades base internamente. El PRD hablaba de «cajas cerradas y unidades»; se simplificó a una sola cantidad.
+- **Producto elegido con buscador** entre los del último reporte importado (código o nombre). Si no está, se acepta un código completo válido. El buscador es un componente compartido con Dañados (`BuscadorProducto`).
+- **Presentación:** botones 30 / 60 / 90 y «Otra» (número entero libre). Se guarda por entrega.
+- **Recepción (RF-8.2):** botón «Volvió completo» o la cantidad que volvió (en la UD); `recibida` es `null` mientras esté pendiente. Diferencia = recibido − entregado (`-` si falta). Recibir 0 cuenta como diferencia, no como pendiente. Se puede deshacer.
+- **Campos en Firestore:** `fecha, codigo, cantidad, presentacion, recibida, notas` (el PRD listaba `cajas, unidades, recibidoCompleto, diferencia`; la diferencia se calcula, no se guarda).
+- **Totales mensuales por producto y presentación** (`totalesPreconteo`, RF-8.3) listos para el resumen de labores; el generador PDF/Excel llega en el bloque de reportes.
+- **No se limita a L-Mi-J-V** el día de entrega: se muestra el día de la semana pero no se bloquea.
+- **Reglas de Firestore** de `preconteos` validan campos. **No probadas aún en el emulador.**
+- **Pendiente del bloque:** editar notas/cantidad de una entrega ya guardada; recordatorio para entregas sin recibir (tarea sugerida) y su aviso en Hoy.

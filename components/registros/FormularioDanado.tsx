@@ -1,11 +1,11 @@
 'use client';
 
-import { Camera, X } from 'lucide-react';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { Camera } from 'lucide-react';
+import { useState } from 'react';
+import { BuscadorProducto } from './BuscadorProducto';
 import { Button } from '@/components/ui/Button';
 import { Hoja } from '@/components/ui/Hoja';
 import type { Existencia } from '@/lib/db/existencias';
-import { coincide } from '@/lib/domain/busqueda';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { normalizarCodigo } from '@/lib/domain/codigos';
 import { ETIQUETA_MOTIVO, MOTIVOS_DANADO, validarDanado, type EntradaDanado, type MotivoDanado } from '@/lib/domain/danados';
@@ -18,8 +18,6 @@ interface Props {
   alGuardar: (entrada: EntradaDanado, foto: File | null) => void;
 }
 
-const MAX_RESULTADOS = 6;
-
 export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar }: Props) {
   const [consulta, setConsulta] = useState('');
   const [producto, setProducto] = useState<Existencia | null>(null);
@@ -30,12 +28,6 @@ export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar }: 
   const [notas, setNotas] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const buscar = useDeferredValue(consulta);
-
-  const resultados = useMemo(() => {
-    if (producto || buscar.trim().length < 2) return [];
-    return existencias.filter((p) => coincide(buscar, p.codigo, p.descripcion)).slice(0, MAX_RESULTADOS);
-  }, [existencias, buscar, producto]);
 
   const n = Number(cantidad.replace(',', '.'));
   const vistaUD = producto && Number.isFinite(n) && n > 0 && tieneFactor(producto.ud) ? formatearEnUD(n, producto.ud) : null;
@@ -61,50 +53,7 @@ export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar }: 
   return (
     <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Registrar dañado">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1 text-xs text-text-muted">
-          <label htmlFor="danado-producto">Producto (código o nombre)</label>
-          {producto ? (
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 p-2 text-text">
-              <span className="min-w-0">
-                <span className="block font-mono text-xs">{producto.codigo}</span>
-                <span className="block truncate text-sm">{producto.descripcion}</span>
-              </span>
-              <button type="button" aria-label="Quitar producto" onClick={() => setProducto(null)} className="grid size-11 shrink-0 place-items-center rounded-xl">
-                <X aria-hidden className="size-4" />
-              </button>
-            </div>
-          ) : (
-            <>
-              <input
-                id="danado-producto"
-                value={consulta}
-                onChange={(e) => setConsulta(e.target.value)}
-                autoComplete="off"
-                className="min-h-11 rounded-xl bg-surface-2 px-3 text-sm text-text"
-              />
-              {resultados.length > 0 && (
-                <ul className="flex flex-col gap-1">
-                  {resultados.map((p) => (
-                    <li key={p.codigo}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProducto(p);
-                          setConsulta('');
-                        }}
-                        className="flex min-h-11 w-full flex-col rounded-xl bg-surface-2 px-3 py-1 text-left"
-                      >
-                        <span className="font-mono text-xs text-text-muted">{p.codigo}</span>
-                        <span className="truncate text-sm text-text">{p.descripcion}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p>Si no está en el último reporte, escribe el código completo.</p>
-            </>
-          )}
-        </div>
+        <BuscadorProducto existencias={existencias} producto={producto} alElegir={setProducto} consulta={consulta} alCambiarConsulta={setConsulta} />
 
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-xs text-text-muted">

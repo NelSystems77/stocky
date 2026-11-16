@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { FormularioDanado } from '@/components/registros/FormularioDanado';
+import { SelectorMes } from '@/components/registros/SelectorMes';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
@@ -27,14 +28,6 @@ import { formatearEnUD, formatearNumero } from '@/lib/domain/formato';
 import { reducirFoto } from '@/lib/imagen';
 
 const fecha = (f: string) => format(parseISO(f), "d 'de' MMM yyyy", { locale: es });
-const nombreMes = (mes: string) => format(parseISO(`${mes}-01`), 'MMMM yyyy', { locale: es });
-
-function cambiarMes(mes: string, delta: number): string {
-  const [a, m] = mes.split('-').map(Number) as [number, number];
-  const d = new Date(Date.UTC(a, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 export default function Danados() {
   const { estado } = useAuth();
   const { mostrar } = useToast();
@@ -101,21 +94,7 @@ export default function Danados() {
       </Link>
 
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1" role="group" aria-label="Mes">
-          <button type="button" aria-label="Mes anterior" onClick={() => setMes(cambiarMes(mes, -1))} className="grid size-11 place-items-center rounded-xl bg-surface-2">
-            ‹
-          </button>
-          <span className="min-w-32 text-center text-sm font-semibold capitalize">{nombreMes(mes)}</span>
-          <button
-            type="button"
-            aria-label="Mes siguiente"
-            disabled={mes >= mesActual}
-            onClick={() => setMes(cambiarMes(mes, 1))}
-            className="grid size-11 place-items-center rounded-xl bg-surface-2 disabled:opacity-40"
-          >
-            ›
-          </button>
-        </div>
+        <SelectorMes mes={mes} mesActual={mesActual} alCambiar={setMes} />
         <Button onClick={() => setFormulario(true)}>
           <Plus aria-hidden className="size-4" />
           Registrar
