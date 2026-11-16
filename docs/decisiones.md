@@ -125,3 +125,14 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
   - Alta manual de un agotado (RF-3.4).
   - Pantalla para que el 771 habilite módulos al 772 y navegación del 772 con los módulos habilitados.
   - Seguridad: exigir App Check (`enforceAppCheck`) tras revisar métricas, solo con visto bueno.
+
+## 2026-11-16 · Fase 3, bloque 1: Dañados (M10)
+
+- **Cantidad en unidades sueltas**, como en el conteo físico (§13): la persona escribe lo que se dañó (`50`) y Stocky guarda unidades base; en pantalla se muestra en la UD del producto (`0.5 CN`). El PRD no lo precisa; se eligió por consistencia.
+- **Foto: se guarda la ruta en Storage (`fotoRuta`), no una URL** (el PRD decía `fotoUrl`): la ruta no caduca ni necesita red para existir. La foto se reduce a JPEG ≤ 1280 px antes de subir (las reglas de Storage limitan a 5 MB).
+- **La foto requiere conexión.** El registro se guarda siempre (también sin red); si no hay red, se avisa y la foto no se adjunta. Subir fotos offline en cola queda pendiente si hace falta.
+- **Producto fuera del último reporte:** se permite escribir el código completo (válido por formato).
+- **Totales para el resumen mensual** (`totalesDanados`, RF-10.2) por motivo y por producto; el generador PDF/Excel llega en el bloque de reportes.
+- **Reglas de Firestore** de `danados` ahora validan campos (antes solo permiso por módulo). **No probadas aún en el emulador.**
+- **Arreglo local:** `components/layout/navegacion.ts` se renombró a `itemsNavegacion.ts`; en Windows chocaba con `Navegacion.tsx` y rompía `npm run build` (en Linux/CI no).
+- **Pendiente del bloque:** editar observaciones de un dañado ya guardado, y probar subida/lectura de fotos contra el emulador de Storage.

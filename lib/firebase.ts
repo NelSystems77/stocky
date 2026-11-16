@@ -9,6 +9,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
+import { connectStorageEmulator, getStorage, type FirebaseStorage } from 'firebase/storage';
 
 // Se referencian de forma estática para que Next las incruste en el build.
 const config = {
@@ -85,6 +86,17 @@ export function firestore(): Firestore {
     if (USAR_EMULADORES) connectFirestoreEmulator(db, '127.0.0.1', 8080);
   }
   return db;
+}
+
+let almacenamiento: FirebaseStorage | undefined;
+
+/** Firebase Storage (fotos de dañados). Requiere conexión para subir. */
+export function firebaseStorage(): FirebaseStorage {
+  if (!almacenamiento) {
+    almacenamiento = getStorage(firebaseApp());
+    if (USAR_EMULADORES) connectStorageEmulator(almacenamiento, '127.0.0.1', 9199);
+  }
+  return almacenamiento;
 }
 
 let funciones: Functions | undefined;

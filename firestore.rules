@@ -141,8 +141,22 @@ service cloud.firestore {
           && request.resource.data.ordenSAP is string
           && request.resource.data.ordenSAP.matches('^50000.*');
       }
+      // Dañados: cantidad en unidades base (> 0), fecha civil, foto opcional (ruta en Storage).
       match /danados/{id} {
-        allow read, write: if accesoModulo(uid, 'danados');
+        allow read, delete: if accesoModulo(uid, 'danados');
+        allow create, update: if accesoModulo(uid, 'danados')
+          && request.resource.data.codigo is string
+          && request.resource.data.codigo.size() > 0
+          && request.resource.data.fecha is string
+          && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.lote is string
+          && request.resource.data.lote.size() <= 40
+          && request.resource.data.cantidad is number
+          && request.resource.data.cantidad > 0
+          && request.resource.data.motivo in ['quebrado', 'derramado', 'otro']
+          && request.resource.data.notas is string
+          && request.resource.data.notas.size() <= 500
+          && (request.resource.data.fotoRuta == null || request.resource.data.fotoRuta is string);
       }
       match /changoIA/{id} {
         allow read, write: if accesoModulo(uid, 'chango');
