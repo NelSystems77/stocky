@@ -133,7 +133,7 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **La foto requiere conexión.** El registro se guarda siempre (también sin red); si no hay red, se avisa y la foto no se adjunta. Subir fotos offline en cola queda pendiente si hace falta.
 - **Producto fuera del último reporte:** se permite escribir el código completo (válido por formato).
 - **Totales para el resumen mensual** (`totalesDanados`, RF-10.2) por motivo y por producto; el generador PDF/Excel llega en el bloque de reportes.
-- **Reglas de Firestore** de `danados` ahora validan campos (antes solo permiso por módulo). **No probadas aún en el emulador.**
+- **Reglas de Firestore** de `danados` ahora validan campos (antes solo permiso por módulo). Probadas en el emulador el 2026-11-16 (ver abajo).
 - **Arreglo local:** `components/layout/navegacion.ts` se renombró a `itemsNavegacion.ts`; en Windows chocaba con `Navegacion.tsx` y rompía `npm run build` (en Linux/CI no).
 - **Pendiente del bloque:** editar observaciones de un dañado ya guardado, y probar subida/lectura de fotos contra el emulador de Storage.
 
@@ -146,7 +146,7 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Campos en Firestore:** `fecha, codigo, cantidad, presentacion, recibida, notas` (el PRD listaba `cajas, unidades, recibidoCompleto, diferencia`; la diferencia se calcula, no se guarda).
 - **Totales mensuales por producto y presentación** (`totalesPreconteo`, RF-8.3) listos para el resumen de labores; el generador PDF/Excel llega en el bloque de reportes.
 - **No se limita a L-Mi-J-V** el día de entrega: se muestra el día de la semana pero no se bloquea.
-- **Reglas de Firestore** de `preconteos` validan campos. **No probadas aún en el emulador.**
+- **Reglas de Firestore** de `preconteos` validan campos. Probadas en el emulador el 2026-11-16 (ver abajo).
 - **Pendiente del bloque:** editar notas/cantidad de una entrega ya guardada; recordatorio para entregas sin recibir (tarea sugerida) y su aviso en Hoy.
 
 ## 2026-11-16 · PRD: contenido elegible del resumen mensual y vencidos
@@ -185,7 +185,7 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Checklist SAP/SIFA** (RF-9.3) solo para el 771 y el superadmin; «trámite sin completar» = traslado ya cerrado con SAP o SIFA sin marcar.
 - **Pendientes (A7, RF-9.4):** lista ordenada del más antiguo, con los días que lleva pendiente. La tarea diaria «Revisar traslados pendientes» ya existía; el chip de Hoy ahora cuenta los pendientes y lleva a Traslados. El énfasis de los martes (encomiendas) queda solo en la nota de la tarea.
 - **Totales para el resumen mensual** (`totalesTraslados`): enviados, recibidos, pendientes, trámite sin completar y unidades. El detalle con orden SAP sale de los propios registros.
-- **Reglas de Firestore** de `traslados` validan campos. **No probadas aún en el emulador.**
+- **Reglas de Firestore** de `traslados` validan campos. Probadas en el emulador el 2026-11-16 (ver abajo).
 - **Pendiente del bloque:** editar un traslado ya guardado (productos, orden) y cantidades recibidas distintas de las enviadas.
 
 ## 2026-11-16 · Fase 3, bloque 4: Reportes y resumen mensual (RF-7.6, RF-2.5)
@@ -197,4 +197,15 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Tareas del mes:** se cuentan hechas, pospuestas, descartadas y sin hacer **hasta hoy** (los días futuros del mes en curso no cuentan como «sin hacer»); cumplimiento = hechas ÷ total. Una tarea pospuesta a otro mes aparece en el mes de su nueva fecha.
 - **Vencidos:** nueva pantalla Registros → Vencidos con registro manual (producto, lote obligatorio, fecha de vencimiento, cantidad en unidades sueltas, observaciones). El campo `origen` admite `'reporte'` para cuando exista el reporte de lotes. Las reglas de Firestore usan el módulo `inventario` (lo ve el 772).
 - **Aún no incluidas:** «Envíos a puestos» y «Pedidos tramitados» (sus módulos son de fase 2, pendientes) y la nota de análisis opcional de Chango IA (fase 4). **El resumen automático del último día hábil** (PRD §7) tampoco está: requiere una Cloud Function programada; queda pendiente.
-- **Reglas de Firestore** de `vencidos` validan campos. **No probadas aún en el emulador.**
+- **Reglas de Firestore** de `vencidos` validan campos. Probadas en el emulador el 2026-11-16 (ver abajo).
+
+## 2026-11-16 · Pruebas en emulador de la fase 3
+
+- **Reglas de Firestore y Storage: 54 de 54 comprobaciones correctas** contra los emuladores (Auth + Firestore + Storage), con cuentas 771 y 772 reales del emulador (claims `role` y `unidad`):
+  - Dañados, preconteo, traslados y vencidos: aceptan datos válidos y rechazan cantidad 0 o negativa, fechas mal escritas, motivo, estado, tipo y origen inválidos, orden SAP que no empieza con 50000 o con letras, traslado sin productos, lote vacío en vencidos y notas de más de 500 caracteres.
+  - Aislamiento: otro 771 no lee ni escribe lo ajeno; el 772 sin módulo no escribe en dañados, preconteo ni traslados; con `danados` habilitado sí; en vencidos (módulo `inventario`) el 772 sí.
+  - Cuentas: nadie puede cambiarse `modulosHabilitados` ni `unidad`; sí se guarda `ajustes.resumenSecciones`.
+  - Storage: sube jpg el 771 dueño; rechaza archivo que no es imagen, más de 5 MB, al 772 y a quien escribe o lee la carpeta de otro.
+- **Pantallas en el navegador** (servidor local + emuladores): Dañados (buscador, conversión `50` → `0,5 CN`, foto de 2400×1800 reducida a 1280×960, subida y «Ver foto»), Traslados (registro de una recepción completa; muestra pendientes y trámite) y Reportes (casillas, y la elección se guarda y sobrevive a recargar).
+- **No probado en el navegador:** Preconteo y Vencidos (solo prueba de reglas y de dominio), la descarga real del PDF/Excel (los generadores sí tienen prueba automática de que producen un PDF y un xlsx válidos), el modo sin conexión de las pantallas nuevas y Chango.
+- Las pruebas de emulador se hicieron con un script desechable fuera del repositorio; no se agregó la dependencia de pruebas de reglas. Si se quiere dejarlas como pruebas permanentes en el repo, hay que justificarla (`@firebase/rules-unit-testing`).
