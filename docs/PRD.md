@@ -143,7 +143,7 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 - **RF-1.6** Vista previa antes de guardar: filas leídas, códigos nuevos, filas dudosas para revisar.
 - **RF-1.7** Consolidado por código y por usuario: cuota, cuota mínima, existencia, lotes con vencimiento, consumo e historial de importaciones.
 - **RF-1.9** Historial de ingresos por lote: cada vez que entra mercadería (normalmente el segundo sábado) se conserva, por producto, el lote, su vencimiento, la cantidad que ingresó y la fecha de ingreso. Los ingresos de meses anteriores no se borran al cargar un reporte nuevo: un producto puede tener varios lotes vivos de ingresos distintos, y el consumo se asigna primero a lo que vence antes. Cada ingreso nuevo se suma al historial, aunque el lote ya exista con otro ingreso.
-- **RF-1.8** Recordatorio semanal los jueves para cargar lotes, vencimientos y consumos; después se podrá pasar a mensual desde ajustes.
+- **RF-1.8** Ciclo de reportes: el reporte de existencias con lotes y vencimientos se carga **cada tercer jueves del mes** (configurable). **15 días después** (o el siguiente día laborable) Stocky recuerda cargar un reporte de existencias para ajustar lo proyectado (RF-2.6). Los consumos se siguen cargando según su recordatorio propio.
 
 ### M2. Vencimientos
 
@@ -151,6 +151,7 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 - **RF-2.2** Alerta por rotación: el lote no se consumirá antes de vencer (regla A1, sección 6), con sugerencia de traslado.
 - **RF-2.3** Alerta fija 3 meses antes del vencimiento (regla A2).
 - **RF-2.4** Marcar un lote como gestionado (trasladado, consumido, dado de baja en SIFA) para que deje de alertar.
+- **RF-2.6** Proyección por lote: entre un reporte de lotes y el siguiente, Stocky proyecta la cantidad disponible de cada lote restando el consumo diario promedio, consumiendo primero el lote que vence antes. Al cargar el reporte de existencias de los 15 días, la proyección se ajusta a la existencia real (la diferencia se descuenta de los lotes que vencen antes) y se reevalúa el riesgo de vencimiento (A1, A2) de cada producto con lo ya ajustado. El tercer jueves el reporte de lotes reemplaza la proyección por lo real.
 - **RF-2.5** Registro de vencidos: lote que llegó a su fecha de vencimiento (o se dio de baja por vencido), con fecha, producto, lote, cantidad y observaciones. Se llena de dos formas: automáticamente desde el reporte de lotes y vencimientos (lote cuya fecha ya pasó y que aún tiene existencia) y a mano. Alimenta el resumen mensual de labores (sección «Vencidos»). El acta sigue haciéndose en SIFA. **Meta del módulo: cero vencidos**; este registro existe para medir cuándo la prevención (A1, A2) falló.
 
 ### M3. Riesgo de agotamiento, bajos y agotados
@@ -184,7 +185,7 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 ### M7. Tareas y agenda diaria
 
 - **RF-7.1** Tareas únicas y recurrentes (diaria, días específicos, semanal, mensual, segundo sábado), con hora, prioridad (alta, media, baja) y notas.
-- **RF-7.2** Precargadas: temperatura AM y PM (solo check), carga de reportes los jueves, preconteo L-Mi-J-V, revisión diaria de traslados pendientes.
+- **RF-7.2** Precargadas: temperatura AM y PM (solo check), carga del reporte de lotes el tercer jueves y de existencias 15 días después, preconteo L-Mi-J-V, revisión diaria de traslados pendientes.
 - **RF-7.3** Estados: pendiente, hecha, pospuesta (con nueva fecha), descartada (con motivo opcional).
 - **RF-7.4** Lo no hecho pasa automáticamente a "pendientes de días anteriores".
 - **RF-7.5** Vista calendario (día, semana, mes) con tareas, pedidos, envíos e ingresos.
@@ -238,7 +239,8 @@ Todas las alertas salen de dos números por producto: el consumo diario promedio
 | A la hora de cada tarea con hora | Recordatorio individual |
 | 2 días antes de cada envío | Preparar envío al puesto |
 | Según anticipación de cada pedido | Poner en trámite el pedido |
-| Jueves 7:00 a. m. | Cargar reportes de lotes, vencimientos y consumos |
+| Tercer jueves del mes, 7:00 a. m. | Cargar el reporte de existencias con lotes y vencimientos |
+| 15 días después, 7:00 a. m. | Cargar reporte de existencias para ajustar la proyección de lotes |
 | Lunes tras el ingreso | Completar la reubicación del mes |
 
 No se envían avisos fuera del calendario laboral; cada tipo se puede silenciar en ajustes.

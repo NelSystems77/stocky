@@ -168,3 +168,10 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - Un producto puede tener varios lotes vivos; el consumo se asigna primero al que vence antes (base de A1).
 - **Por confirmar:** de dónde salen la cantidad y la fecha de ingreso de cada lote (el reporte, comparar reportes sucesivos, o a mano al recibir).
 - Vencimientos (M2) sigue bloqueado hasta tener el reporte real; Traslados continúa mientras tanto.
+
+## 2026-11-16 · Ciclo de reportes de lotes y proyección
+
+- **Reporte de existencias con lotes y vencimientos: cada tercer jueves del mes** (salvo cambios; configurable). Trae existencias, número de lote y fecha de vencimiento.
+- **15 días después:** recordatorio para cargar un reporte de existencias; con él se ajusta la proyección por lote y se reevalúa el riesgo de vencimiento (**RF-2.6**, nuevo en el PRD). Si cae en día no laborable, pasa al siguiente.
+- Cambios en el PRD: RF-1.8, RF-2.6, tabla de notificaciones y RF-7.2.
+- **Pendiente de código (con Vencimientos):** la tarea sugerida y el aviso de «jueves» que hoy existen (semanales) se cambian a «tercer jueves» y «+15 días». No se tocan hasta construir M2.
