@@ -112,3 +112,100 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Lecturas acotadas.** Solo se leen los consumos de las últimas 4 cargas (se buscan en las 16 importaciones más recientes), no todo el historial, para cuidar las lecturas de Firestore. No hace falta un índice nuevo.
 - **Primeras semanas del mes.** Una carga de los primeros días del mes se basa en pocos días hábiles y es más ruidosa; la media móvil de 4 cargas la suaviza.
 - **Pendiente:** reporte PDF/Excel de «Bajos y riesgo» (PRD §7) y la alerta A8 (reporte desactualizado).
+
+## 2026-11-16 · PRD en el repo y pendientes de Fase 2
+
+- **`docs/PRD.md` ya vive en el repositorio** (copia del documento de Claude Docs). Es la fuente de verdad de qué construir.
+- **Fase 3 (registros)** se desarrolla en orden: dañados (M10) → preconteo (M8) → traslados (M9) → reportes y resumen mensual (§7). Rama `fase-3-registros`, base `feat-riesgo-agotamiento` (aún sin fusionar).
+- **Pendientes de Fase 2 que NO se pierden** (se retoman después, o en el momento en que un bloque de Fase 3 los necesite):
+  - Vencimientos A1/A2 (M2): falta un PDF real de lotes y vencimientos.
+  - Agenda de pedidos (M4) y envíos a puestos (M5); día de envío a V por confirmar.
+  - Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
+  - Alerta A8 (reporte desactualizado).
+  - Alta manual de un agotado (RF-3.4).
+  - Pantalla para que el 771 habilite módulos al 772 y navegación del 772 con los módulos habilitados.
+  - Seguridad: exigir App Check (`enforceAppCheck`) tras revisar métricas, solo con visto bueno.
+
+## 2026-11-16 · Fase 3, bloque 1: Dañados (M10)
+
+- **Cantidad en unidades sueltas**, como en el conteo físico (§13): la persona escribe lo que se dañó (`50`) y Stocky guarda unidades base; en pantalla se muestra en la UD del producto (`0.5 CN`). El PRD no lo precisa; se eligió por consistencia.
+- **Foto: se guarda la ruta en Storage (`fotoRuta`), no una URL** (el PRD decía `fotoUrl`): la ruta no caduca ni necesita red para existir. La foto se reduce a JPEG ≤ 1280 px antes de subir (las reglas de Storage limitan a 5 MB).
+- **La foto requiere conexión.** El registro se guarda siempre (también sin red); si no hay red, se avisa y la foto no se adjunta. Subir fotos offline en cola queda pendiente si hace falta.
+- **Producto fuera del último reporte:** se permite escribir el código completo (válido por formato).
+- **Totales para el resumen mensual** (`totalesDanados`, RF-10.2) por motivo y por producto; el generador PDF/Excel llega en el bloque de reportes.
+- **Reglas de Firestore** de `danados` ahora validan campos (antes solo permiso por módulo). Probadas en el emulador el 2026-11-16 (ver abajo).
+- **Arreglo local:** `components/layout/navegacion.ts` se renombró a `itemsNavegacion.ts`; en Windows chocaba con `Navegacion.tsx` y rompía `npm run build` (en Linux/CI no).
+- **Pendiente del bloque:** editar observaciones de un dañado ya guardado, y probar subida/lectura de fotos contra el emulador de Storage.
+
+## 2026-11-16 · Fase 3, bloque 2: Preconteo (M8)
+
+- **Cantidad entregada en la UD del producto** (cientos para `CN`), como lo pidió la persona usuaria: `5` CN = `500` unidades base internamente. El PRD hablaba de «cajas cerradas y unidades»; se simplificó a una sola cantidad.
+- **Producto elegido con buscador** entre los del último reporte importado (código o nombre). Si no está, se acepta un código completo válido. El buscador es un componente compartido con Dañados (`BuscadorProducto`).
+- **Presentación:** botones 30 / 60 / 90 y «Otra» (número entero libre). Se guarda por entrega.
+- **Recepción (RF-8.2):** botón «Volvió completo» o la cantidad que volvió (en la UD); `recibida` es `null` mientras esté pendiente. Diferencia = recibido − entregado (`-` si falta). Recibir 0 cuenta como diferencia, no como pendiente. Se puede deshacer.
+- **Campos en Firestore:** `fecha, codigo, cantidad, presentacion, recibida, notas` (el PRD listaba `cajas, unidades, recibidoCompleto, diferencia`; la diferencia se calcula, no se guarda).
+- **Totales mensuales por producto y presentación** (`totalesPreconteo`, RF-8.3) listos para el resumen de labores; el generador PDF/Excel llega en el bloque de reportes.
+- **No se limita a L-Mi-J-V** el día de entrega: se muestra el día de la semana pero no se bloquea.
+- **Reglas de Firestore** de `preconteos` validan campos. Probadas en el emulador el 2026-11-16 (ver abajo).
+- **Pendiente del bloque:** editar notas/cantidad de una entrega ya guardada; recordatorio para entregas sin recibir (tarea sugerida) y su aviso en Hoy.
+
+## 2026-11-16 · PRD: contenido elegible del resumen mensual y vencidos
+
+- El PRD **no** permitía elegir el contenido del resumen mensual ni incluía **vencidos**. Se agregó al PRD: **RF-7.6** (el usuario elige qué secciones incluir; todas marcadas por defecto; misma selección para PDF y Excel; el resumen automático usa la selección guardada) y **RF-2.5** (registro de vencidos).
+- **Por confirmar:** de dónde salen los vencidos (registro manual propio, o los lotes del reporte de lotes y vencimientos cuando exista). Hasta entonces se propone un registro manual, como Dañados.
+- **Orden de trabajo:** el registro de Vencidos y el selector de secciones se construyen en el bloque de reportes (fase 3), después de Traslados.
+- La copia original del PRD en Claude Docs no se modificó: la del repo es ahora la vigente.
+
+## 2026-11-16 · Vencidos: del reporte y a mano; prioridad a la prevención
+
+- **Decidido:** los vencidos se toman **del reporte de lotes y vencimientos y también a mano** (RF-2.5).
+- **Prioridad del producto:** que no haya productos vencidos (objetivo 1 del PRD). El registro de vencidos solo mide cuándo falló la prevención; lo que la evita son las alertas A1 (rotación) y A2 (90 días), del módulo Vencimientos (M2, pendiente de fase 2).
+- **Bloqueo:** falta un PDF real del reporte de lotes y vencimientos para diseñar el lector. La lógica de dominio (cobertura por lote consumiendo primero lo que vence antes, A1/A2) sí se puede hacer y probar sin él.
+
+## 2026-11-16 · Historial de ingresos por lote
+
+- Cada mes cambian lotes y vencimientos por la mercadería nueva. Se agregó al PRD **RF-1.9** y los campos `cantidadIngresada` y `fechaIngreso` en `lotes`: se conservan los ingresos anteriores (lote, vencimiento, cantidad, fecha) y cada ingreso nuevo se suma al historial.
+- Un producto puede tener varios lotes vivos; el consumo se asigna primero al que vence antes (base de A1).
+- **Por confirmar:** de dónde salen la cantidad y la fecha de ingreso de cada lote (el reporte, comparar reportes sucesivos, o a mano al recibir).
+- Vencimientos (M2) sigue bloqueado hasta tener el reporte real; Traslados continúa mientras tanto.
+
+## 2026-11-16 · Ciclo de reportes de lotes y proyección
+
+- **Reporte de existencias con lotes y vencimientos: cada tercer jueves del mes** (salvo cambios; configurable). Trae existencias, número de lote y fecha de vencimiento.
+- **15 días después:** recordatorio para cargar un reporte de existencias; con él se ajusta la proyección por lote y se reevalúa el riesgo de vencimiento (**RF-2.6**, nuevo en el PRD). Si cae en día no laborable, pasa al siguiente.
+- Cambios en el PRD: RF-1.8, RF-2.6, tabla de notificaciones y RF-7.2.
+- **Pendiente de código (con Vencimientos):** la tarea sugerida y el aviso de «jueves» que hoy existen (semanales) se cambian a «tercer jueves» y «+15 días». No se tocan hasta construir M2.
+
+## 2026-11-16 · Fase 3, bloque 3: Traslados (M9)
+
+- **Orden SAP:** solo dígitos, empieza con 50000 y tiene más de 5 dígitos (las reglas de Firestore exigen `^50000[0-9]*$`). No se inventó un largo máximo.
+- **Estados según el tipo** (RF-9.2): recepción = pendiente por llegar → recibido; envío = pendiente → enviado. Al cerrar se guarda `fechaCierre` (la de hoy). Se puede deshacer.
+- **Unidad de origen/destino:** texto libre con sugerencias (Hospital, Área de Salud).
+- **Productos:** se buscan entre los del último reporte (o código completo) y la cantidad va en la UD del producto; un producto repetido se suma en una sola línea.
+- **Checklist SAP/SIFA** (RF-9.3) solo para el 771 y el superadmin; «trámite sin completar» = traslado ya cerrado con SAP o SIFA sin marcar.
+- **Pendientes (A7, RF-9.4):** lista ordenada del más antiguo, con los días que lleva pendiente. La tarea diaria «Revisar traslados pendientes» ya existía; el chip de Hoy ahora cuenta los pendientes y lleva a Traslados. El énfasis de los martes (encomiendas) queda solo en la nota de la tarea.
+- **Totales para el resumen mensual** (`totalesTraslados`): enviados, recibidos, pendientes, trámite sin completar y unidades. El detalle con orden SAP sale de los propios registros.
+- **Reglas de Firestore** de `traslados` validan campos. Probadas en el emulador el 2026-11-16 (ver abajo).
+- **Pendiente del bloque:** editar un traslado ya guardado (productos, orden) y cantidades recibidas distintas de las enviadas.
+
+## 2026-11-16 · Fase 3, bloque 4: Reportes y resumen mensual (RF-7.6, RF-2.5)
+
+- **Resumen mensual con secciones elegibles** (Reportes): Tareas, Preconteo, Traslados, Dañados, Vencidos y Agotados, con casillas. Todas vienen marcadas la primera vez; la elección se guarda en `usuarios/{uid}.ajustes.resumenSecciones` y se recuerda (también entre meses y dispositivos). Se puede elegir cualquier mes, no solo el actual.
+- **El orden de las secciones es fijo** (el de la lista), no el orden en que se marcan. Una sección elegida sin registros sale con «Sin registros»; solo se omite lo que se desmarca. Con todo desmarcado no se puede generar.
+- **PDF** apaisado, una sección tras otra con su tabla y sus totales; **Excel** con una hoja por sección. Se generan en el dispositivo (sin conexión). El PDF y el Excel de siempre (agotados, bajos) no cambiaron; solo se extrajeron el encabezado y el pie para reutilizarlos.
+- **Disponibilidad por módulo:** el 771 y el superadmin ven las seis; el 772 ve Tareas, Vencidos y Agotados, más las de módulos que el 771 le haya habilitado (`modulosHabilitados`). Solo se leen las colecciones de las secciones disponibles.
+- **Tareas del mes:** se cuentan hechas, pospuestas, descartadas y sin hacer **hasta hoy** (los días futuros del mes en curso no cuentan como «sin hacer»); cumplimiento = hechas ÷ total. Una tarea pospuesta a otro mes aparece en el mes de su nueva fecha.
+- **Vencidos:** nueva pantalla Registros → Vencidos con registro manual (producto, lote obligatorio, fecha de vencimiento, cantidad en unidades sueltas, observaciones). El campo `origen` admite `'reporte'` para cuando exista el reporte de lotes. Las reglas de Firestore usan el módulo `inventario` (lo ve el 772).
+- **Aún no incluidas:** «Envíos a puestos» y «Pedidos tramitados» (sus módulos son de fase 2, pendientes) y la nota de análisis opcional de Chango IA (fase 4). **El resumen automático del último día hábil** (PRD §7) tampoco está: requiere una Cloud Function programada; queda pendiente.
+- **Reglas de Firestore** de `vencidos` validan campos. Probadas en el emulador el 2026-11-16 (ver abajo).
+
+## 2026-11-16 · Pruebas en emulador de la fase 3
+
+- **Reglas de Firestore y Storage: 54 de 54 comprobaciones correctas** contra los emuladores (Auth + Firestore + Storage), con cuentas 771 y 772 reales del emulador (claims `role` y `unidad`):
+  - Dañados, preconteo, traslados y vencidos: aceptan datos válidos y rechazan cantidad 0 o negativa, fechas mal escritas, motivo, estado, tipo y origen inválidos, orden SAP que no empieza con 50000 o con letras, traslado sin productos, lote vacío en vencidos y notas de más de 500 caracteres.
+  - Aislamiento: otro 771 no lee ni escribe lo ajeno; el 772 sin módulo no escribe en dañados, preconteo ni traslados; con `danados` habilitado sí; en vencidos (módulo `inventario`) el 772 sí.
+  - Cuentas: nadie puede cambiarse `modulosHabilitados` ni `unidad`; sí se guarda `ajustes.resumenSecciones`.
+  - Storage: sube jpg el 771 dueño; rechaza archivo que no es imagen, más de 5 MB, al 772 y a quien escribe o lee la carpeta de otro.
+- **Pantallas en el navegador** (servidor local + emuladores): Dañados (buscador, conversión `50` → `0,5 CN`, foto de 2400×1800 reducida a 1280×960, subida y «Ver foto»), Traslados (registro de una recepción completa; muestra pendientes y trámite) y Reportes (casillas, y la elección se guarda y sobrevive a recargar).
+- **No probado en el navegador:** Preconteo y Vencidos (solo prueba de reglas y de dominio), la descarga real del PDF/Excel (los generadores sí tienen prueba automática de que producen un PDF y un xlsx válidos), el modo sin conexión de las pantallas nuevas y Chango.
+- Las pruebas de emulador se hicieron con un script desechable fuera del repositorio; no se agregó la dependencia de pruebas de reglas. Si se quiere dejarlas como pruebas permanentes en el repo, hay que justificarla (`@firebase/rules-unit-testing`).

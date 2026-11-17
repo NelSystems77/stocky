@@ -1,4 +1,11 @@
-import type { DatosReporte } from './tipos';
+import type { DatosReporte, DatosResumen } from './tipos';
+
+async function generar(d: DatosReporte | DatosResumen, formato: FormatoReporte): Promise<Uint8Array> {
+  if ('secciones' in d) {
+    return formato === 'pdf' ? (await import('./pdf')).generarPdfResumen(d) : (await import('./excel')).generarExcelResumen(d);
+  }
+  return formato === 'pdf' ? (await import('./pdf')).generarPdf(d) : (await import('./excel')).generarExcel(d);
+}
 
 export type FormatoReporte = 'pdf' | 'xlsx';
 
@@ -8,8 +15,8 @@ const MIME: Record<FormatoReporte, string> = {
 };
 
 /** Genera el archivo en el dispositivo y lo descarga. Los reportes no pasan por ningún servidor. */
-export async function descargarReporte(d: DatosReporte, formato: FormatoReporte): Promise<void> {
-  const bytes = formato === 'pdf' ? await (await import('./pdf')).generarPdf(d) : await (await import('./excel')).generarExcel(d);
+export async function descargarReporte(d: DatosReporte | DatosResumen, formato: FormatoReporte): Promise<void> {
+  const bytes = await generar(d, formato);
   const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: MIME[formato] }));
   const a = document.createElement('a');
   a.href = url;

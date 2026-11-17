@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { itemsPara } from './navegacion';
+import { itemsPara } from './itemsNavegacion';
 
 function useItems() {
   const { estado } = useAuth();

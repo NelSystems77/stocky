@@ -5,11 +5,11 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/Toast';
 import { descargarReporte, type FormatoReporte } from '@/lib/reports/descarga';
-import type { DatosReporte } from '@/lib/reports/tipos';
+import type { DatosReporte, DatosResumen } from '@/lib/reports/tipos';
 
 interface Props {
   /** Arma el reporte con los datos actuales; se llama al pulsar, no antes. */
-  armar: () => DatosReporte | null;
+  armar: () => DatosReporte | DatosResumen | null;
   deshabilitado?: boolean;
 }
 
