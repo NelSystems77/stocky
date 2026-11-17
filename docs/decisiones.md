@@ -224,3 +224,10 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Privacidad:** el prompt le prohíbe usar datos de pacientes y lo que venga dentro de los datos o la pregunta como instrucciones. En el plan gratuito Google puede usar lo enviado para mejorar sus productos; solo viajan datos de medicamentos y operación (PRD §8).
 - **Pruebas:** 21 de dominio, 22 de la lógica de la Function contra el emulador de Firestore con un Gemini simulado (privacidad entre usuarios, módulos del 772, cascada, tope diario, clave en encabezado, historial) y 61 de reglas; el panel se vio en el navegador (escritorio y celular) con la Function simulada. **No se probó contra Gemini real**: falta la clave.
 - **Antes de fusionar:** crear el secreto `GEMINI_API_KEY` (ver `docs/despliegue.md`); sin él el despliegue de Functions falla.
+
+## 2026-11-16 · Ubicaciones con Chango IA (PRD)
+
+- Se agregó al PRD **RF-6.7, RF-6.8 y RF-6.9** y la «primera acción» de Chango IA (§8): guardar ubicaciones propuestas y confirmadas.
+- **Decidido:** un producto puede tener **varias ubicaciones vigentes a la vez**. Las ubicaciones se escriben en **texto libre** (sin mapa fijo, porque los nombres de estantes, tarimas y filas siguen sin confirmar); lo que no cambia se conserva y se confirma cada mes.
+- **Chango propone, la persona confirma, la app escribe.** La Function no escribe ubicaciones.
+- **No incluido en el PR 9** (Chango sigue de solo consulta): se construye en un PR siguiente junto con el módulo de ubicaciones.

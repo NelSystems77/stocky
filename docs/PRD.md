@@ -181,6 +181,9 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 - **RF-6.4** Sesión "Reubicación del mes" tras el ingreso del segundo sábado: lista de productos del ingreso, barra de avance de ubicados y recordatorio hasta completarla.
 - **RF-6.5** Estantería con lugar fijo por producto; tarimas con contenido dinámico, cambiable cada mes o semana.
 - **RF-6.6** Historial de ubicaciones con fecha; el buscador muestra la ubicación actual.
+- **RF-6.7** Ubicación en texto libre (disponible antes del mapa con QR): la persona registra, por producto, el lugar como lo dice («Mueble de madera espacio 8», «Tarima 3 fila 4»). Un producto puede tener **varias ubicaciones vigentes a la vez**. Una ubicación sigue vigente (`hasta` vacío) hasta que el producto se mueva o se retire, así que **lo que no cambia se conserva sin volver a escribirlo**. Hay un formulario manual que funciona sin conexión.
+- **RF-6.8** Actualización mensual: tras el ingreso del segundo sábado, «Reubicación del mes» (RF-6.4) muestra qué ubicaciones siguen vigentes y cuáles conviene confirmar o cambiar (por ejemplo, las que no se han confirmado en el mes). Cada ubicación guarda la fecha en que se confirmó por última vez.
+- **RF-6.9** Chango IA registra ubicaciones: la persona le escribe o dicta una lista («Mueble de madera espacio 8 Aripiprazol, tarima 9 tercera fila Protón…»); Chango la convierte en una tabla de **propuestas** (producto del catálogo, ubicación) que la persona revisa y **confirma antes de guardar**. Empareja los nombres con el catálogo, corrige errores de escritura y, ante un nombre ambiguo, pregunta cuál es; nunca adivina. Lo que se guarda lo escribe la app con la sesión de la persona (no la Function). Es la primera acción de Chango IA (§8).
 
 ### M7. Tareas y agenda diaria
 
@@ -295,7 +298,9 @@ Chango IA consulta, analiza y sugiere usando solo los datos cargados en Stocky; 
 
 **Privacidad.** En el plan gratuito Google puede usar los datos enviados para mejorar sus productos; como solo viajan datos de medicamentos y operación, se considera aceptable.
 
-**Fase posterior.** Acciones por voz o texto ("crea tarea", "registra dañado") con confirmación.
+**Primera acción: ubicaciones.** Chango IA propone ubicaciones a partir de una lista escrita y la persona las confirma antes de guardarlas (RF-6.9). Al preguntar «¿dónde está X?» responde con la ubicación vigente y la fecha en que se confirmó; si hay varias, las lista todas; si no hay, dice que no la tiene. El contexto de Chango incluirá las ubicaciones vigentes.
+
+**Fase posterior.** Más acciones por voz o texto ("crea tarea", "registra dañado"), siempre con confirmación.
 
 ## 9. Modelo de datos
 
@@ -311,7 +316,7 @@ Firestore con un catálogo compartido y todo lo demás colgando de cada usuario,
 | Consumos | `usuarios/{uid}/consumos/{id}` | codigo, periodo, cantidad |
 | Agotados | `usuarios/{uid}/agotados/{id}` | codigo, fechaAgotado, fechaIngreso, origen (detectado o manual), notas |
 | Espacios | `usuarios/{uid}/espacios/{id}` | tipo (estante, tarima, sobre tarima), nombre, fila, posicionMapa, qr |
-| Ubicaciones | `usuarios/{uid}/ubicaciones/{id}` | codigo, espacioId, desde, hasta |
+| Ubicaciones | `usuarios/{uid}/ubicaciones/{id}` | codigo, lugar (texto libre) o espacioId (cuando exista el mapa), desde, hasta (vacío = vigente), confirmadaEn |
 | Tareas | `usuarios/{uid}/tareas/{id}` | titulo, tipo, recurrencia, hora, prioridad, estado, fechaObjetivo, notas, motivoDescarte |
 | Pedidos (tipos) | `usuarios/{uid}/tiposPedido/{id}` | nombre, periodicidad, anticipacion, activo |
 | Envíos (puestos) | `usuarios/{uid}/puestos/{id}` | nombre (C, Z, V, R), diaEnvio, anticipacion |
