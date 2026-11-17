@@ -150,7 +150,7 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 - **RF-2.2** Alerta por rotación: el lote no se consumirá antes de vencer (regla A1, sección 6), con sugerencia de traslado.
 - **RF-2.3** Alerta fija 3 meses antes del vencimiento (regla A2).
 - **RF-2.4** Marcar un lote como gestionado (trasladado, consumido, dado de baja en SIFA) para que deje de alertar.
-- **RF-2.5** Registro de vencidos: lote que llegó a su fecha de vencimiento (o se dio de baja por vencido), con fecha, producto, lote, cantidad y observaciones. Alimenta el resumen mensual de labores (sección «Vencidos»). El acta sigue haciéndose en SIFA.
+- **RF-2.5** Registro de vencidos: lote que llegó a su fecha de vencimiento (o se dio de baja por vencido), con fecha, producto, lote, cantidad y observaciones. Se llena de dos formas: automáticamente desde el reporte de lotes y vencimientos (lote cuya fecha ya pasó y que aún tiene existencia) y a mano. Alimenta el resumen mensual de labores (sección «Vencidos»). El acta sigue haciéndose en SIFA. **Meta del módulo: cero vencidos**; este registro existe para medir cuándo la prevención (A1, A2) falló.
 
 ### M3. Riesgo de agotamiento, bajos y agotados
 
@@ -356,7 +356,7 @@ Faltan cinco definiciones antes de desarrollar; el resto del PRD está cerrado.
 - [ ] PDF reales (no capturas) de los reportes de existencias, lotes y vencimientos, y consumos, para confirmar que son de texto y fijar el lector.
 - [ ] Lista completa de códigos UD (CN, FC, TR, tubo, ampolla, frasco…) y su factor.
 - [ ] Aceptar el plan Blaze de Firebase para notificaciones programadas y Chango IA.
-- [ ] Origen de «Vencidos» (RF-2.5): registro manual propio o tomado de los lotes del reporte de lotes y vencimientos cuando exista; hasta entonces se registra a mano.
+- [x] Origen de «Vencidos» (RF-2.5): del reporte de lotes y vencimientos **y** a mano (decidido el 2026-11-16).
 
 **Fases de desarrollo**
 

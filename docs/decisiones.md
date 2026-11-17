@@ -155,3 +155,9 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Por confirmar:** de dónde salen los vencidos (registro manual propio, o los lotes del reporte de lotes y vencimientos cuando exista). Hasta entonces se propone un registro manual, como Dañados.
 - **Orden de trabajo:** el registro de Vencidos y el selector de secciones se construyen en el bloque de reportes (fase 3), después de Traslados.
 - La copia original del PRD en Claude Docs no se modificó: la del repo es ahora la vigente.
+
+## 2026-11-16 · Vencidos: del reporte y a mano; prioridad a la prevención
+
+- **Decidido:** los vencidos se toman **del reporte de lotes y vencimientos y también a mano** (RF-2.5).
+- **Prioridad del producto:** que no haya productos vencidos (objetivo 1 del PRD). El registro de vencidos solo mide cuándo falló la prevención; lo que la evita son las alertas A1 (rotación) y A2 (90 días), del módulo Vencimientos (M2, pendiente de fase 2).
+- **Bloqueo:** falta un PDF real del reporte de lotes y vencimientos para diseñar el lector. La lógica de dominio (cobertura por lote consumiendo primero lo que vence antes, A1/A2) sí se puede hacer y probar sin él.
