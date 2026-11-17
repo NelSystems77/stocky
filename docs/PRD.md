@@ -142,6 +142,7 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 - **RF-1.5** Catálogo base: los códigos de aprendiendoCodigos. Un código nuevo en un reporte se agrega solo y se marca "nuevo".
 - **RF-1.6** Vista previa antes de guardar: filas leídas, códigos nuevos, filas dudosas para revisar.
 - **RF-1.7** Consolidado por código y por usuario: cuota, cuota mínima, existencia, lotes con vencimiento, consumo e historial de importaciones.
+- **RF-1.9** Historial de ingresos por lote: cada vez que entra mercadería (normalmente el segundo sábado) se conserva, por producto, el lote, su vencimiento, la cantidad que ingresó y la fecha de ingreso. Los ingresos de meses anteriores no se borran al cargar un reporte nuevo: un producto puede tener varios lotes vivos de ingresos distintos, y el consumo se asigna primero a lo que vence antes. Cada ingreso nuevo se suma al historial, aunque el lote ya exista con otro ingreso.
 - **RF-1.8** Recordatorio semanal los jueves para cargar lotes, vencimientos y consumos; después se podrá pasar a mensual desde ajustes.
 
 ### M2. Vencimientos
@@ -304,7 +305,7 @@ Firestore con un catálogo compartido y todo lo demás colgando de cada usuario,
 | Usuarios | `usuarios/{uid}` | nombre, unidad (771/772), modulosHabilitados, ajustes (umbrales, horarios, feriados) |
 | Importaciones | `usuarios/{uid}/importaciones/{id}` | tipoReporte, fechaReporte, archivo, filas, codigosNuevos |
 | Existencias | `usuarios/{uid}/existencias/{codigo}` | cuota, cuotaMinima, existencia, consumoDiario, cobertura, nivelRiesgo, actualizadoEn |
-| Lotes | `usuarios/{uid}/lotes/{id}` | codigo, lote, vence, cantidad, coberturaLote, estado (activo, gestionado) |
+| Lotes | `usuarios/{uid}/lotes/{id}` | codigo, lote, vence, cantidad (existencia actual del lote), cantidadIngresada, fechaIngreso, coberturaLote, estado (activo, gestionado, vencido) |
 | Consumos | `usuarios/{uid}/consumos/{id}` | codigo, periodo, cantidad |
 | Agotados | `usuarios/{uid}/agotados/{id}` | codigo, fechaAgotado, fechaIngreso, origen (detectado o manual), notas |
 | Espacios | `usuarios/{uid}/espacios/{id}` | tipo (estante, tarima, sobre tarima), nombre, fila, posicionMapa, qr |

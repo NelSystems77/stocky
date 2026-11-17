@@ -161,3 +161,10 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Decidido:** los vencidos se toman **del reporte de lotes y vencimientos y también a mano** (RF-2.5).
 - **Prioridad del producto:** que no haya productos vencidos (objetivo 1 del PRD). El registro de vencidos solo mide cuándo falló la prevención; lo que la evita son las alertas A1 (rotación) y A2 (90 días), del módulo Vencimientos (M2, pendiente de fase 2).
 - **Bloqueo:** falta un PDF real del reporte de lotes y vencimientos para diseñar el lector. La lógica de dominio (cobertura por lote consumiendo primero lo que vence antes, A1/A2) sí se puede hacer y probar sin él.
+
+## 2026-11-16 · Historial de ingresos por lote
+
+- Cada mes cambian lotes y vencimientos por la mercadería nueva. Se agregó al PRD **RF-1.9** y los campos `cantidadIngresada` y `fechaIngreso` en `lotes`: se conservan los ingresos anteriores (lote, vencimiento, cantidad, fecha) y cada ingreso nuevo se suma al historial.
+- Un producto puede tener varios lotes vivos; el consumo se asigna primero al que vence antes (base de A1).
+- **Por confirmar:** de dónde salen la cantidad y la fecha de ingreso de cada lote (el reporte, comparar reportes sucesivos, o a mano al recibir).
+- Vencimientos (M2) sigue bloqueado hasta tener el reporte real; Traslados continúa mientras tanto.
