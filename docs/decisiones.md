@@ -148,3 +148,10 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **No se limita a L-Mi-J-V** el día de entrega: se muestra el día de la semana pero no se bloquea.
 - **Reglas de Firestore** de `preconteos` validan campos. **No probadas aún en el emulador.**
 - **Pendiente del bloque:** editar notas/cantidad de una entrega ya guardada; recordatorio para entregas sin recibir (tarea sugerida) y su aviso en Hoy.
+
+## 2026-11-16 · PRD: contenido elegible del resumen mensual y vencidos
+
+- El PRD **no** permitía elegir el contenido del resumen mensual ni incluía **vencidos**. Se agregó al PRD: **RF-7.6** (el usuario elige qué secciones incluir; todas marcadas por defecto; misma selección para PDF y Excel; el resumen automático usa la selección guardada) y **RF-2.5** (registro de vencidos).
+- **Por confirmar:** de dónde salen los vencidos (registro manual propio, o los lotes del reporte de lotes y vencimientos cuando exista). Hasta entonces se propone un registro manual, como Dañados.
+- **Orden de trabajo:** el registro de Vencidos y el selector de secciones se construyen en el bloque de reportes (fase 3), después de Traslados.
+- La copia original del PRD en Claude Docs no se modificó: la del repo es ahora la vigente.

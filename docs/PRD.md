@@ -150,6 +150,7 @@ Diez módulos alimentados por un mismo consolidado por código; cada requisito l
 - **RF-2.2** Alerta por rotación: el lote no se consumirá antes de vencer (regla A1, sección 6), con sugerencia de traslado.
 - **RF-2.3** Alerta fija 3 meses antes del vencimiento (regla A2).
 - **RF-2.4** Marcar un lote como gestionado (trasladado, consumido, dado de baja en SIFA) para que deje de alertar.
+- **RF-2.5** Registro de vencidos: lote que llegó a su fecha de vencimiento (o se dio de baja por vencido), con fecha, producto, lote, cantidad y observaciones. Alimenta el resumen mensual de labores (sección «Vencidos»). El acta sigue haciéndose en SIFA.
 
 ### M3. Riesgo de agotamiento, bajos y agotados
 
@@ -247,7 +248,7 @@ El reporte estrella es el Resumen mensual de labores en PDF; los demás salen en
 
 | Reporte | Período | Formato | Contenido |
 | --- | --- | --- | --- |
-| Resumen mensual de labores | Mes | PDF (y Excel con el detalle) | Tareas hechas, pospuestas y descartadas; preconteo por producto y presentación; traslados enviados, recibidos y pendientes con orden SAP; dañados; agotados del mes; envíos a puestos; pedidos tramitados |
+| Resumen mensual de labores | Mes | PDF (y Excel con el detalle) | Secciones a elegir por el usuario (ver abajo): tareas hechas, pospuestas y descartadas; preconteo por producto y presentación; traslados enviados, recibidos y pendientes con orden SAP; dañados; vencidos; agotados del mes; envíos a puestos; pedidos tramitados |
 | Tareas | Semana o mes | PDF y Excel | Cumplimiento por tarea y por día, incluida temperatura AM y PM |
 | Agotados | Semana, mes o personalizado | PDF y Excel | Producto, fecha de agotamiento, fecha de ingreso, días agotado |
 | Vencimientos | Al día | PDF y Excel | Lotes en alerta A1 y A2 con acción tomada |
@@ -255,6 +256,14 @@ El reporte estrella es el Resumen mensual de labores en PDF; los demás salen en
 | Ubicaciones | Al día | PDF | Mapa y contenido por espacio, para imprimir y pegar |
 
 El resumen mensual se genera solo el último día hábil del mes y queda listo para descargar; Chango IA puede añadirle una nota de análisis opcional.
+
+**Contenido elegible (RF-7.6).** Antes de generar el resumen mensual, el usuario elige qué secciones incluir con casillas: Tareas, Preconteo, Traslados, Dañados, Vencidos, Agotados, Envíos a puestos y Pedidos tramitados. Reglas:
+
+- Todas vienen marcadas por defecto; la última elección se recuerda por usuario.
+- Cada sección va en su propia página o bloque, con totales y detalle; una sección sin registros en el mes se muestra como «Sin registros» (no se omite en silencio) o se puede desmarcar.
+- La misma selección vale para el PDF y para el Excel (una hoja por sección).
+- El resumen automático del último día hábil usa la selección guardada.
+- Las secciones de módulos que el usuario no tiene habilitados (p. ej. el 772) no aparecen.
 
 ## 8. Chango IA
 
@@ -347,6 +356,7 @@ Faltan cinco definiciones antes de desarrollar; el resto del PRD está cerrado.
 - [ ] PDF reales (no capturas) de los reportes de existencias, lotes y vencimientos, y consumos, para confirmar que son de texto y fijar el lector.
 - [ ] Lista completa de códigos UD (CN, FC, TR, tubo, ampolla, frasco…) y su factor.
 - [ ] Aceptar el plan Blaze de Firebase para notificaciones programadas y Chango IA.
+- [ ] Origen de «Vencidos» (RF-2.5): registro manual propio o tomado de los lotes del reporte de lotes y vencimientos cuando exista; hasta entonces se registra a mano.
 
 **Fases de desarrollo**
 
