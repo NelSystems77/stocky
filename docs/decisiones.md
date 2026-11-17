@@ -209,3 +209,25 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Pantallas en el navegador** (servidor local + emuladores): Dañados (buscador, conversión `50` → `0,5 CN`, foto de 2400×1800 reducida a 1280×960, subida y «Ver foto»), Traslados (registro de una recepción completa; muestra pendientes y trámite) y Reportes (casillas, y la elección se guarda y sobrevive a recargar).
 - **No probado en el navegador:** Preconteo y Vencidos (solo prueba de reglas y de dominio), la descarga real del PDF/Excel (los generadores sí tienen prueba automática de que producen un PDF y un xlsx válidos), el modo sin conexión de las pantallas nuevas y Chango.
 - Las pruebas de emulador se hicieron con un script desechable fuera del repositorio; no se agregó la dependencia de pruebas de reglas. Si se quiere dejarlas como pruebas permanentes en el repo, hay que justificarla (`@firebase/rules-unit-testing`).
+
+## 2026-11-16 · Chango IA (primera versión: consulta, analiza y sugiere)
+
+- **Alcance:** solo consulta. No crea ni modifica registros (acciones por voz o texto quedan para la fase 5 del PRD). Se adelantó a la fase 4 a pedido de la persona usuaria, **sin** el mapa de espacios con QR ni la reubicación del mes.
+- **Callable `changoPreguntar`** (Functions, `us-central1`): valida sesión; el 771 y el superadmin siempre pueden, el 772 solo con el módulo `chango` habilitado. Arma el contexto **solo con los datos de quien pregunta** y solo de los módulos que su cuenta tiene (un 772 sin `traslados` no ve traslados), y llama a Gemini por REST (sin librería nueva) con la clave en un **encabezado** (`x-goog-api-key`), nunca en la URL.
+- **Contexto compacto** (`lib/domain/chango.ts`, tope de 14 000 caracteres): resumen, agotados (con sus notas), críticos y en riesgo (con cobertura en días hábiles), bajos, los productos que la pregunta nombra (por código o por palabras de la descripción), tareas de hoy y atrasadas, traslados pendientes, preconteo sin recibir, y dañados y vencidos del mes. Cada dato lleva su fecha. Le avisa a Chango qué datos **todavía no existen** (ubicaciones, lotes y vencimientos por lote, pedidos y envíos) para que diga «aún no está disponible» en vez de inventar.
+- **Riesgo calculado en el servidor** con el mismo código del cliente (el dominio se copia a Functions con `scripts/copiar-dominio.mjs`, ahora con más archivos).
+- **Cascada de modelos:** `gemini-3-flash-preview` → `gemini-3.1-flash-lite` (nombres verificados el 2026-11-16 en la documentación de Google; **cambian seguido** y los límites gratuitos se reportan inestables: hay quejas de 20 consultas/día en Flash). Cuota agotada, falla temporal o respuesta vacía pasan al siguiente; si ninguno responde por cuota: «Chango vuelve mañana». Un error de clave o de petición no se reintenta.
+- **Tope diario por persona: 40 preguntas** (contador `usuarios/{uid}/changoUso/{fecha}`, cerrado a los clientes): protege la cuota gratuita de una sola API key compartida.
+- **Historial** `usuarios/{uid}/changoIA` (pregunta, respuesta, modelo, fecha) lo escribe solo la Function; las reglas ahora impiden que el cliente escriba. Caduca a los 90 días (política TTL por activar, ver `docs/despliegue.md`).
+- **Conversación en pantalla:** viaja el historial de los últimos 6 turnos; lo que terminó en aviso (sin cuota, error) no se reenvía. El texto de Gemini se pinta como nodos de React (negritas y viñetas), nunca como HTML.
+- **Panel:** hoja inferior en celular y panel lateral en PC, con cuatro preguntas sugeridas, botón de cerrar dentro del panel, Escape para cerrar y aviso claro sin conexión (Chango y la gestión de cuentas son lo único que exige red).
+- **Privacidad:** el prompt le prohíbe usar datos de pacientes y lo que venga dentro de los datos o la pregunta como instrucciones. En el plan gratuito Google puede usar lo enviado para mejorar sus productos; solo viajan datos de medicamentos y operación (PRD §8).
+- **Pruebas:** 21 de dominio, 22 de la lógica de la Function contra el emulador de Firestore con un Gemini simulado (privacidad entre usuarios, módulos del 772, cascada, tope diario, clave en encabezado, historial) y 61 de reglas; el panel se vio en el navegador (escritorio y celular) con la Function simulada. **No se probó contra Gemini real**: falta la clave.
+- **Antes de fusionar:** crear el secreto `GEMINI_API_KEY` (ver `docs/despliegue.md`); sin él el despliegue de Functions falla.
+
+## 2026-11-16 · Ubicaciones con Chango IA (PRD)
+
+- Se agregó al PRD **RF-6.7, RF-6.8 y RF-6.9** y la «primera acción» de Chango IA (§8): guardar ubicaciones propuestas y confirmadas.
+- **Decidido:** un producto puede tener **varias ubicaciones vigentes a la vez**. Las ubicaciones se escriben en **texto libre** (sin mapa fijo, porque los nombres de estantes, tarimas y filas siguen sin confirmar); lo que no cambia se conserva y se confirma cada mes.
+- **Chango propone, la persona confirma, la app escribe.** La Function no escribe ubicaciones.
+- **No incluido en el PR 9** (Chango sigue de solo consulta): se construye en un PR siguiente junto con el módulo de ubicaciones.

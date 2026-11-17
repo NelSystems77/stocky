@@ -11,7 +11,7 @@ import {
 import type { Cumplimiento, Tarea } from './dominio/tareas.js';
 
 const Fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const TareaSchema = z.object({
+export const TareaSchema = z.object({
   titulo: z.string(),
   recurrencia: z.discriminatedUnion('tipo', [
     z.object({ tipo: z.literal('unica'), fecha: Fecha }),
@@ -27,7 +27,7 @@ const TareaSchema = z.object({
   activa: z.boolean(),
   desde: Fecha,
 });
-const CumplimientoSchema = z.object({
+export const CumplimientoSchema = z.object({
   tareaId: z.string(),
   fechaOrigen: Fecha,
   estado: z.enum(['hecha', 'pospuesta', 'descartada']),

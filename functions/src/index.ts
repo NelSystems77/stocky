@@ -2,10 +2,12 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { defineSecret } from 'firebase-functions/params';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { z } from 'zod';
+import { PeticionChango, preguntarAChango } from './chango.js';
 import { ejecutarTick, type Enviar } from './tick.js';
 
 setGlobalOptions({ region: 'us-central1', maxInstances: 5 });
@@ -153,3 +155,34 @@ export const tickNotificaciones = onSchedule(
     await ejecutarTick(getFirestore(), enviarPorFCM);
   },
 );
+
+/** Clave de Gemini: secreto de Functions (`firebase functions:secrets:set GEMINI_API_KEY`), nunca en el repositorio ni en el navegador. */
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+
+/**
+ * Chango IA: consulta, analiza y sugiere con los datos de quien pregunta. No ejecuta acciones.
+ * El 771 y el superadmin siempre pueden; el 772 solo si el 771 le habilitó el módulo `chango`.
+ */
+export const changoPreguntar = onCall({ secrets: [GEMINI_API_KEY], timeoutSeconds: 90, maxInstances: 5 }, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar.');
+  const rol = req.auth.token['role'];
+  const unidad = String(req.auth.token['unidad'] ?? '');
+  if (rol !== 'usuario' && rol !== 'superadmin') throw new HttpsError('permission-denied', 'No tienes permiso para usar Chango IA.');
+
+  const parsed = PeticionChango.safeParse(req.data);
+  if (!parsed.success) throw new HttpsError('invalid-argument', 'Escribe una pregunta (máximo 500 caracteres).');
+
+  const db = getFirestore();
+  const doc = await db.doc(`usuarios/${req.auth.uid}`).get();
+  const habilitados = doc.get('modulosHabilitados');
+  const modulos = new Set<string>(Array.isArray(habilitados) ? habilitados.filter((m): m is string => typeof m === 'string') : []);
+  if (rol === 'usuario' && unidad === '772' && !modulos.has('chango')) {
+    throw new HttpsError('permission-denied', 'El 771 aún no te habilitó Chango IA.');
+  }
+
+  return preguntarAChango(
+    { db, clave: GEMINI_API_KEY.value(), fetcher: (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(25_000) }) },
+    { uid: req.auth.uid, unidad: rol === 'superadmin' ? '771' : unidad, modulos },
+    parsed.data,
+  );
+});
