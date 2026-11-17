@@ -13,6 +13,8 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirUltimaImportacion, type Importacion } from '@/lib/db/importaciones';
+import { suscribirTraslados } from '@/lib/db/traslados';
+import { trasladosPendientes, type RegistroTraslado } from '@/lib/domain/traslados';
 import { estadoStock } from '@/lib/domain/stock';
 import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
@@ -35,13 +37,16 @@ export default function Hoy() {
   // `undefined` = todavía cargando; `null` = no hay importaciones.
   const [ultima, setUltima] = useState<Importacion | null | undefined>(undefined);
   const [existencias, setExistencias] = useState<Existencia[] | undefined>(undefined);
+  const [traslados, setTraslados] = useState<RegistroTraslado[] | undefined>(undefined);
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
+  const es771 = estado.fase === 'listo' && (estado.sesion.unidad === '771' || estado.sesion.rol === 'superadmin');
 
   useEffect(() => {
     if (!uid) return;
     const bajas = [suscribirUltimaImportacion(uid, setUltima), suscribirExistencias(uid, setExistencias)];
+    if (es771) bajas.push(suscribirTraslados(uid, setTraslados));
     return () => bajas.forEach((b) => b());
-  }, [uid]);
+  }, [uid, es771]);
 
   const { riesgos, hayConsumos } = useRiesgo(existencias);
 
@@ -71,7 +76,6 @@ export default function Hoy() {
 
   const ahora = new Date();
   const fecha = format(parseISO(hoyCostaRica(ahora)), "EEEE d 'de' MMMM", { locale: es });
-  const es771 = sesion.unidad === '771' || sesion.rol === 'superadmin';
 
   return (
     <Pantalla titulo={`${saludo(ahora)}, ${sesion.nombre.split(' ')[0] ?? ''}`}>
@@ -83,7 +87,7 @@ export default function Hoy() {
         <ChipAlerta href="/inventario/" etiqueta="Vencimientos" valor={null} tono="critical" icono={Clock} />
         <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={enRiesgo} tono="warning" icono={AlertTriangle} />
         {es771 && (
-          <ChipAlerta href="/registros/" etiqueta="Traslados pendientes" valor={null} tono="info" icono={ArrowRightLeft} />
+          <ChipAlerta href="/registros/traslados/" etiqueta="Traslados pendientes" valor={traslados === undefined ? null : trasladosPendientes(traslados).length} tono="info" icono={ArrowRightLeft} />
         )}
         <ChipAlerta href="/agenda/" etiqueta="Pedidos y envíos" valor={null} tono="info" icono={CalendarClock} />
       </section>

@@ -175,3 +175,15 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **15 días después:** recordatorio para cargar un reporte de existencias; con él se ajusta la proyección por lote y se reevalúa el riesgo de vencimiento (**RF-2.6**, nuevo en el PRD). Si cae en día no laborable, pasa al siguiente.
 - Cambios en el PRD: RF-1.8, RF-2.6, tabla de notificaciones y RF-7.2.
 - **Pendiente de código (con Vencimientos):** la tarea sugerida y el aviso de «jueves» que hoy existen (semanales) se cambian a «tercer jueves» y «+15 días». No se tocan hasta construir M2.
+
+## 2026-11-16 · Fase 3, bloque 3: Traslados (M9)
+
+- **Orden SAP:** solo dígitos, empieza con 50000 y tiene más de 5 dígitos (las reglas de Firestore exigen `^50000[0-9]*$`). No se inventó un largo máximo.
+- **Estados según el tipo** (RF-9.2): recepción = pendiente por llegar → recibido; envío = pendiente → enviado. Al cerrar se guarda `fechaCierre` (la de hoy). Se puede deshacer.
+- **Unidad de origen/destino:** texto libre con sugerencias (Hospital, Área de Salud).
+- **Productos:** se buscan entre los del último reporte (o código completo) y la cantidad va en la UD del producto; un producto repetido se suma en una sola línea.
+- **Checklist SAP/SIFA** (RF-9.3) solo para el 771 y el superadmin; «trámite sin completar» = traslado ya cerrado con SAP o SIFA sin marcar.
+- **Pendientes (A7, RF-9.4):** lista ordenada del más antiguo, con los días que lleva pendiente. La tarea diaria «Revisar traslados pendientes» ya existía; el chip de Hoy ahora cuenta los pendientes y lleva a Traslados. El énfasis de los martes (encomiendas) queda solo en la nota de la tarea.
+- **Totales para el resumen mensual** (`totalesTraslados`): enviados, recibidos, pendientes, trámite sin completar y unidades. El detalle con orden SAP sale de los propios registros.
+- **Reglas de Firestore** de `traslados` validan campos. **No probadas aún en el emulador.**
+- **Pendiente del bloque:** editar un traslado ya guardado (productos, orden) y cantidades recibidas distintas de las enviadas.
