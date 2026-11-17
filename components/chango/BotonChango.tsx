@@ -1,31 +1,34 @@
 'use client';
 
-import { Bot, X } from 'lucide-react';
-import { useState } from 'react';
+import { Bot } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { PanelChango } from './PanelChango';
 
-/** Botón flotante de Chango IA. El panel de chat llega en la fase de IA; por ahora solo avisa. */
+/** Botón flotante de Chango IA; abre el panel de chat (hoja inferior en celular, panel lateral en PC). */
 export function BotonChango() {
   const [abierto, setAbierto] = useState(false);
+
+  useEffect(() => {
+    if (!abierto) return;
+    const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && setAbierto(false);
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [abierto]);
+
   return (
     <>
-      {abierto && (
-        <div
-          role="dialog"
-          aria-label="Chango IA"
-          className="fixed right-4 bottom-36 z-40 w-72 rounded-2xl bg-surface-2 p-4 shadow-xl lg:bottom-24"
+      {abierto && <PanelChango alCerrar={() => setAbierto(false)} />}
+      {!abierto && (
+        <button
+          type="button"
+          aria-label="Abrir Chango IA"
+          aria-expanded={false}
+          onClick={() => setAbierto(true)}
+          className="fixed right-4 bottom-20 z-50 grid size-14 place-items-center rounded-full bg-accent text-bg shadow-lg transition duration-200 hover:brightness-110 lg:bottom-6"
         >
-          <p className="font-semibold text-accent">Chango IA</p>
-          <p className="mt-1 text-sm text-text-muted">Chango todavía se está preparando. Pronto podrás preguntarle por tu inventario.</p>
-        </div>
+          <Bot aria-hidden className="size-6" />
+        </button>
       )}
-      <button
-        type="button"
-        aria-label={abierto ? 'Cerrar Chango IA' : 'Abrir Chango IA'}
-        onClick={() => setAbierto((v) => !v)}
-        className="fixed right-4 bottom-20 z-40 grid size-14 place-items-center rounded-full bg-accent text-bg shadow-lg transition duration-200 hover:brightness-110 lg:bottom-6"
-      >
-        {abierto ? <X aria-hidden className="size-6" /> : <Bot aria-hidden className="size-6" />}
-      </button>
     </>
   );
 }

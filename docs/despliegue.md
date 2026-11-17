@@ -21,7 +21,17 @@ Si cualquier verificación falla, **no se despliega**.
 | `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clave de sitio (pública) de reCAPTCHA Enterprise registrada en App Check. Sin ella la app funciona, pero no envía tokens de App Check. |
 
 La config web es pública por diseño; igual va como secreto para no repetirla en el repo. Los valores fijos (`authDomain`, `projectId`, `storageBucket`, `messagingSenderId`) están en los workflows.
-Cuando llegue Chango IA se agrega `GEMINI_API_KEY` como secreto **de Functions** (`firebase functions:secrets:set`), no de GitHub.
+
+### Chango IA: la clave de Gemini (hacer ANTES de fusionar a `main`)
+
+`GEMINI_API_KEY` es un secreto **de Functions** (Secret Manager), **no** de GitHub ni del repositorio. La Function `changoPreguntar` lo declara, así que **si el secreto no existe, el despliegue de Functions falla**.
+
+1. Crear la clave en [Google AI Studio](https://aistudio.google.com/apikey) (plan gratuito, una sola clave; no rotar varias cuentas para multiplicar la cuota).
+2. Guardarla una vez, desde una terminal con sesión en el proyecto:
+   `firebase functions:secrets:set GEMINI_API_KEY --project stocky-bbda4`
+   (pega la clave cuando la pida; no la escribas en el comando ni en ningún archivo).
+3. Si el despliegue de GitHub Actions se queja por permisos de Secret Manager, darle a la cuenta de servicio del despliegue el rol `Secret Manager Admin` (o `Secret Manager Viewer` + `Secret Manager Secret Accessor`) y volver a correr el workflow.
+4. Modelos usados (en `lib/domain/chango.ts`, `MODELOS_CHANGO`): `gemini-3-flash-preview` y, si se agota la cuota, `gemini-3.1-flash-lite`. Los nombres y los límites gratuitos de Google cambian seguido: si Chango responde siempre «error», revisar ahí primero y en AI Studio.
 
 ## Permisos de la cuenta de servicio
 
@@ -47,6 +57,9 @@ El plan **Blaze** ya está activo (requerido por las Functions programadas).
 - **Política TTL** para `usuarios/{uid}/avisosEnviados`: la Function guarda `expiraEn` (envío + 14 días) y la política se activa **una vez** sobre ese campo, después del primer despliegue con este cambio:
   `gcloud firestore fields ttls update expiraEn --collection-group=avisosEnviados --enable-ttl --project stocky-bbda4`
   (No usar `enviadoEn`: es una fecha pasada y el TTL borraría el aviso al instante, reenviándolo.)
+- **Políticas TTL de Chango IA** (una sola vez, tras el primer despliegue): el historial `changoIA` caduca a los 90 días y el contador `changoUso` a los 3.
+  `gcloud firestore fields ttls update expiraEn --collection-group=changoIA --enable-ttl --project stocky-bbda4`
+  `gcloud firestore fields ttls update expiraEn --collection-group=changoUso --enable-ttl --project stocky-bbda4`
 - **Dominio autorizado**: si se usan vistas previas con inicio de sesión, revisar que Authentication acepte sus dominios.
 
 ## Probar localmente (sin tocar producción)

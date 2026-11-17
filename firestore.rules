@@ -207,8 +207,11 @@ service cloud.firestore {
           && request.resource.data.notas is string
           && request.resource.data.notas.size() <= 500;
       }
+      // Historial de Chango IA: lo escribe solo la Cloud Function (Admin SDK); el cliente solo puede leerlo.
+      // `changoUso/*` (contador diario) no tiene regla: queda cerrado para todos los clientes.
       match /changoIA/{id} {
-        allow read, write: if accesoModulo(uid, 'chango');
+        allow read: if accesoModulo(uid, 'chango');
+        allow write: if false;
       }
     }
 
