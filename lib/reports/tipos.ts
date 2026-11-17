@@ -18,3 +18,23 @@ export interface DatosReporte {
 }
 
 export const MARCA = 'Stocky by NelSystems';
+
+/** Una sección del resumen mensual: su propia tabla, con totales. Sin filas se muestra «Sin registros». */
+export interface SeccionReporte {
+  titulo: string;
+  columnas: string[];
+  filas: (string | number)[][];
+  columnasNumericas?: number[];
+  resumen: string[];
+}
+
+/** Reporte con varias secciones (resumen mensual de labores), independiente del formato. */
+export interface DatosResumen {
+  titulo: string;
+  usuario: string;
+  unidad: string;
+  generadoEn: Date;
+  detalle: string[];
+  secciones: SeccionReporte[];
+  nombreArchivo: string;
+}

@@ -187,3 +187,14 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Totales para el resumen mensual** (`totalesTraslados`): enviados, recibidos, pendientes, trámite sin completar y unidades. El detalle con orden SAP sale de los propios registros.
 - **Reglas de Firestore** de `traslados` validan campos. **No probadas aún en el emulador.**
 - **Pendiente del bloque:** editar un traslado ya guardado (productos, orden) y cantidades recibidas distintas de las enviadas.
+
+## 2026-11-16 · Fase 3, bloque 4: Reportes y resumen mensual (RF-7.6, RF-2.5)
+
+- **Resumen mensual con secciones elegibles** (Reportes): Tareas, Preconteo, Traslados, Dañados, Vencidos y Agotados, con casillas. Todas vienen marcadas la primera vez; la elección se guarda en `usuarios/{uid}.ajustes.resumenSecciones` y se recuerda (también entre meses y dispositivos). Se puede elegir cualquier mes, no solo el actual.
+- **El orden de las secciones es fijo** (el de la lista), no el orden en que se marcan. Una sección elegida sin registros sale con «Sin registros»; solo se omite lo que se desmarca. Con todo desmarcado no se puede generar.
+- **PDF** apaisado, una sección tras otra con su tabla y sus totales; **Excel** con una hoja por sección. Se generan en el dispositivo (sin conexión). El PDF y el Excel de siempre (agotados, bajos) no cambiaron; solo se extrajeron el encabezado y el pie para reutilizarlos.
+- **Disponibilidad por módulo:** el 771 y el superadmin ven las seis; el 772 ve Tareas, Vencidos y Agotados, más las de módulos que el 771 le haya habilitado (`modulosHabilitados`). Solo se leen las colecciones de las secciones disponibles.
+- **Tareas del mes:** se cuentan hechas, pospuestas, descartadas y sin hacer **hasta hoy** (los días futuros del mes en curso no cuentan como «sin hacer»); cumplimiento = hechas ÷ total. Una tarea pospuesta a otro mes aparece en el mes de su nueva fecha.
+- **Vencidos:** nueva pantalla Registros → Vencidos con registro manual (producto, lote obligatorio, fecha de vencimiento, cantidad en unidades sueltas, observaciones). El campo `origen` admite `'reporte'` para cuando exista el reporte de lotes. Las reglas de Firestore usan el módulo `inventario` (lo ve el 772).
+- **Aún no incluidas:** «Envíos a puestos» y «Pedidos tramitados» (sus módulos son de fase 2, pendientes) y la nota de análisis opcional de Chango IA (fase 4). **El resumen automático del último día hábil** (PRD §7) tampoco está: requiere una Cloud Function programada; queda pendiente.
+- **Reglas de Firestore** de `vencidos` validan campos. **No probadas aún en el emulador.**

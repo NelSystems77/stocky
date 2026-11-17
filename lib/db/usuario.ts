@@ -15,6 +15,10 @@ export interface DatosUsuario {
   /** Días hábiles de margen sobre el próximo ingreso para marcar «riesgo» (regla A4). */
   margenRiesgo: number;
   tokens: string[];
+  /** Módulos que el 771 habilitó al 772 (`modulosHabilitados`). */
+  modulosHabilitados: string[];
+  /** Secciones elegidas para el resumen mensual (`ajustes.resumenSecciones`); `undefined` = nunca eligió. */
+  resumenSecciones: unknown;
 }
 
 const ref = (uid: string) => doc(firestore(), `usuarios/${uid}`);
@@ -23,16 +27,18 @@ export function suscribirUsuario(uid: string, alCambiar: (d: DatosUsuario) => vo
   return onSnapshot(
     ref(uid),
     (snap) => {
-      const datos = snap.data() as { ajustes?: { notificaciones?: Partial<AjustesNotificaciones>; feriados?: unknown; umbrales?: { margenRiesgo?: unknown } }; tokensFCM?: unknown } | undefined;
+      const datos = snap.data() as { ajustes?: { notificaciones?: Partial<AjustesNotificaciones>; feriados?: unknown; resumenSecciones?: unknown; umbrales?: { margenRiesgo?: unknown } }; tokensFCM?: unknown; modulosHabilitados?: unknown } | undefined;
       alCambiar({
         existe: snap.exists(),
         notificaciones: { ...AJUSTES_NOTIFICACIONES_INICIALES, ...datos?.ajustes?.notificaciones },
         feriados: normalizarFeriados(datos?.ajustes?.feriados),
         margenRiesgo: normalizarMargen(datos?.ajustes?.umbrales?.margenRiesgo),
         tokens: Array.isArray(datos?.tokensFCM) ? datos.tokensFCM.filter((t): t is string => typeof t === 'string') : [],
+        modulosHabilitados: Array.isArray(datos?.modulosHabilitados) ? datos.modulosHabilitados.filter((m): m is string => typeof m === 'string') : [],
+        resumenSecciones: datos?.ajustes?.resumenSecciones,
       });
     },
-    () => alCambiar({ existe: false, notificaciones: AJUSTES_NOTIFICACIONES_INICIALES, feriados: [], margenRiesgo: MARGEN_RIESGO_INICIAL, tokens: [] }),
+    () => alCambiar({ existe: false, notificaciones: AJUSTES_NOTIFICACIONES_INICIALES, feriados: [], margenRiesgo: MARGEN_RIESGO_INICIAL, tokens: [], modulosHabilitados: [], resumenSecciones: undefined }),
   );
 }
 
@@ -49,6 +55,11 @@ export function guardarFeriados(uid: string, feriados: readonly FechaISO[]): Pro
 /** Guarda el margen de riesgo (`ajustes.umbrales.margenRiesgo`), siempre normalizado. */
 export function guardarMargenRiesgo(uid: string, dias: number): Promise<void> {
   return registrarEscritura(updateDoc(ref(uid), { 'ajustes.umbrales.margenRiesgo': normalizarMargen(dias) }));
+}
+
+/** Recuerda las secciones elegidas para el resumen mensual (`ajustes.resumenSecciones`). */
+export function guardarResumenSecciones(uid: string, secciones: readonly string[]): Promise<void> {
+  return registrarEscritura(updateDoc(ref(uid), { 'ajustes.resumenSecciones': [...secciones] }));
 }
 
 export function agregarToken(uid: string, token: string): Promise<void> {

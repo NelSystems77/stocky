@@ -188,6 +188,25 @@ service cloud.firestore {
           && request.resource.data.notas.size() <= 500
           && (request.resource.data.fotoRuta == null || request.resource.data.fotoRuta is string);
       }
+      // Vencidos (RF-2.5): cantidad en unidades base (> 0), fechas civiles. Origen manual o del reporte de lotes.
+      match /vencidos/{id} {
+        allow read, delete: if accesoModulo(uid, 'inventario');
+        allow create, update: if accesoModulo(uid, 'inventario')
+          && request.resource.data.codigo is string
+          && request.resource.data.codigo.size() > 0
+          && request.resource.data.lote is string
+          && request.resource.data.lote.size() > 0
+          && request.resource.data.lote.size() <= 40
+          && request.resource.data.fecha is string
+          && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.fechaVencimiento is string
+          && request.resource.data.fechaVencimiento.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.cantidad is number
+          && request.resource.data.cantidad > 0
+          && request.resource.data.origen in ['manual', 'reporte']
+          && request.resource.data.notas is string
+          && request.resource.data.notas.size() <= 500;
+      }
       match /changoIA/{id} {
         allow read, write: if accesoModulo(uid, 'chango');
       }

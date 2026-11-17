@@ -1,4 +1,4 @@
-import { ChevronRight, ArrowRightLeft, ClipboardCheck, PackageX, type LucideIcon } from 'lucide-react';
+import { ChevronRight, ArrowRightLeft, ClipboardCheck, CalendarX, PackageX, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Pantalla } from '@/components/layout/Pantalla';
 
@@ -12,6 +12,7 @@ interface Modulo {
 const MODULOS: Modulo[] = [
   { href: '/registros/preconteo/', titulo: 'Preconteo', detalle: 'Entregas a las damas voluntarias y su recepción', icono: ClipboardCheck },
   { href: '/registros/traslados/', titulo: 'Traslados', detalle: 'Orden SAP, envíos y recepciones, trámite SAP/SIFA', icono: ArrowRightLeft },
+  { href: '/registros/vencidos/', titulo: 'Vencidos', detalle: 'Lotes vencidos: la meta es cero', icono: CalendarX },
   { href: '/registros/danados/', titulo: 'Dañados', detalle: 'Quebrados y derramados, con foto opcional', icono: PackageX },
 ];
 
