@@ -205,6 +205,7 @@ El despliegue **no** se hace desde la sesión de Claude: lo hace GitHub Actions 
 
 ## 11. Forma de trabajo con Claude
 
+0. **Al empezar, lee `docs/estado.md`** (qué está hecho, PR abiertos y pendientes); al cerrar la sesión, actualízalo.
 1. **Una fase del PRD por sesión** (`docs/PRD.md` §11). No adelantes módulos de fases futuras.
 2. Antes de escribir código, resume en 5–10 líneas qué vas a construir y qué archivos tocarás.
 3. Lógica de dominio primero, con pruebas; luego UI.
@@ -218,7 +219,7 @@ El despliegue **no** se hace desde la sesión de Claude: lo hace GitHub Actions 
 
 ## 12. Datos pendientes (no inventar)
 
-- Día de envío a V (y confirmar R lunes, C martes, Z miércoles) → dejar configurable.
+- ~~Día de envío a V~~ → resuelto el 2026-11-20 (R lunes y último jueves, C martes, V y Z miércoles; configurables). Ver `docs/decisiones.md`.
 - Cantidad y nombres de estantes, tarimas y filas del 771 → el mapa se construye desde ajustes, sin valores fijos.
 - Lista completa de UD y factores → tabla editable con `CN = 100` precargado.
 - PDF reales de existencias, lotes/vencimientos y consumos → el parser se diseña por columnas detectadas en el encabezado (`CODIGO`, `UD`, `DESCRIPCION DEL PRODUCTO`, `CUOTA`, `Cuota Mínima`, `EXISTENCIA`, …) y se ajusta con muestras reales.

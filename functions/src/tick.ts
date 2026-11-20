@@ -5,9 +5,11 @@ import {
   AJUSTES_NOTIFICACIONES_INICIALES,
   expiraEnAviso,
   franjaDe,
+  HORA_RESUMEN_MANANA,
   planificarAvisos,
   type AjustesNotificaciones,
 } from './dominio/notificaciones.js';
+import type { Programado, Seguimiento } from './dominio/pedidosEnvios.js';
 import type { Cumplimiento, Tarea } from './dominio/tareas.js';
 
 const Fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -34,6 +36,26 @@ export const CumplimientoSchema = z.object({
   fechaProgramada: Fecha.optional(),
   motivo: z.string().optional(),
 });
+
+const ProgramacionSchema = z.discriminatedUnion('tipo', [
+  z.object({ tipo: z.literal('unica'), fecha: Fecha }),
+  z.object({ tipo: z.literal('diaria') }),
+  z.object({ tipo: z.literal('diasSemana'), dias: z.array(z.number().int().min(0).max(6)) }),
+  z.object({ tipo: z.literal('quincenal'), dia: z.number().int().min(0).max(6), ancla: Fecha }),
+  z.object({ tipo: z.literal('mensual'), diaMes: z.number().int().min(1).max(31) }),
+  z.object({ tipo: z.literal('segundoSabado') }),
+  z.object({ tipo: z.literal('ultimoDiaSemana'), dia: z.number().int().min(0).max(6) }),
+]);
+/** Pedido o envío programado; la clase la da la colección (`tiposPedido` = pedido, `puestos` = envío). */
+export const ProgramadoSchema = z.object({
+  nombre: z.string(),
+  recurrencias: z.array(ProgramacionSchema),
+  anticipacion: z.number().int().min(0),
+  activo: z.boolean(),
+  desde: Fecha,
+  notas: z.string(),
+});
+const SeguimientoSchema = z.object({ programadoId: z.string(), fecha: Fecha, estado: z.enum(['en_tramite', 'enviado']) });
 
 export interface Envio {
   tokens: string[];
@@ -86,7 +108,28 @@ export async function ejecutarTick(db: Firestore, enviar: Enviar, ahora: Date = 
       if (r.success) cumplimientos.push(r.data);
     }
 
-    for (const aviso of planificarAvisos({ tareas, cumplimientos, hoy, franja, ajustes, feriados })) {
+    // Los pedidos y envíos solo existen en el 771; una cuenta sin ellos no tiene nada que avisar.
+    const programados: Programado[] = [];
+    const seguimientos: Seguimiento[] = [];
+    if (franja === HORA_RESUMEN_MANANA) {
+      const [snapPedidos, snapEnvios, snapSeg] = await Promise.all([
+        u.ref.collection('tiposPedido').get(),
+        u.ref.collection('puestos').get(),
+        u.ref.collection('seguimientos').where('fecha', '>=', sumarDias(hoy, -14)).get(),
+      ]);
+      for (const [snap, clase] of [[snapPedidos, 'pedido'], [snapEnvios, 'envio']] as const) {
+        for (const d of snap.docs) {
+          const r = ProgramadoSchema.safeParse(d.data());
+          if (r.success) programados.push({ id: d.id, clase, ...r.data } as Programado);
+        }
+      }
+      for (const d of snapSeg.docs) {
+        const r = SeguimientoSchema.safeParse(d.data());
+        if (r.success) seguimientos.push(r.data);
+      }
+    }
+
+    for (const aviso of planificarAvisos({ tareas, cumplimientos, hoy, franja, ajustes, feriados, programados, seguimientos })) {
       const marca = u.ref.collection('avisosEnviados').doc(aviso.clave);
       try {
         // `expiraEn` es el campo de la política TTL de Firestore (colección avisosEnviados).

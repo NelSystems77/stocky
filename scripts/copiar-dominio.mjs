@@ -12,7 +12,7 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const origen = join(raiz, 'lib', 'domain');
 const destino = join(raiz, 'functions', 'src', 'dominio');
 const ARCHIVOS = [
-  'types', 'calendario', 'recurrencia', 'tareas', 'notificaciones',
+  'types', 'calendario', 'recurrencia', 'pedidosEnvios', 'tareas', 'notificaciones',
   // Chango IA (contexto y cascada de modelos) y todo lo que usa.
   'codigos', 'unidades', 'formato', 'busqueda', 'stock', 'consumo', 'riesgo', 'feriados', 'agotados', 'danados', 'preconteo', 'traslados', 'vencidos', 'chango',
 ];

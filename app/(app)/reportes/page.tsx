@@ -11,7 +11,9 @@ import { suscribirDanados } from '@/lib/db/danados';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirPreconteos } from '@/lib/db/preconteos';
 import { suscribirCumplimientos, suscribirTareas } from '@/lib/db/tareas';
+import { suscribirProgramados, suscribirSeguimientos } from '@/lib/db/pedidosEnvios';
 import { suscribirTraslados } from '@/lib/db/traslados';
+import type { Programado, Seguimiento } from '@/lib/domain/pedidosEnvios';
 import { guardarResumenSecciones, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
 import { suscribirVencidos } from '@/lib/db/vencidos';
 import type { RegistroAgotado } from '@/lib/domain/agotados';
@@ -38,6 +40,8 @@ const DETALLE_SECCION: Record<SeccionResumen, string> = {
   danados: 'Cada dañado con lote, cantidad y motivo',
   vencidos: 'Lotes vencidos del mes (la meta es cero)',
   agotados: 'Agotados del mes y días sin existencia',
+  envios: 'Cada envío a un puesto del mes y si se hizo',
+  pedidos: 'Cada pedido del mes y si se tramitó',
 };
 
 export default function Reportes() {
@@ -55,6 +59,9 @@ export default function Reportes() {
   const [danados, setDanados] = useState<RegistroDanado[]>([]);
   const [vencidos, setVencidos] = useState<RegistroVencido[]>([]);
   const [agotados, setAgotados] = useState<RegistroAgotado[]>([]);
+  const [envios, setEnvios] = useState<Programado[]>([]);
+  const [pedidos, setPedidos] = useState<Programado[]>([]);
+  const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
   const [existencias, setExistencias] = useState<Existencia[]>([]);
 
   const hoy = hoyCostaRica();
@@ -86,6 +93,9 @@ export default function Reportes() {
     if (disponibles.includes('danados')) bajas.push(suscribirDanados(uid, setDanados));
     if (disponibles.includes('vencidos')) bajas.push(suscribirVencidos(uid, setVencidos));
     if (disponibles.includes('agotados')) bajas.push(suscribirAgotados(uid, setAgotados));
+    if (disponibles.includes('envios')) bajas.push(suscribirProgramados(uid, 'envio', setEnvios));
+    if (disponibles.includes('pedidos')) bajas.push(suscribirProgramados(uid, 'pedido', setPedidos));
+    if (disponibles.includes('envios') || disponibles.includes('pedidos')) bajas.push(suscribirSeguimientos(uid, desde, setSeguimientos));
     return () => bajas.forEach((b) => b());
   }, [uid, mes, datosUsuario, disponibles]);
 
@@ -114,6 +124,10 @@ export default function Reportes() {
         danados,
         vencidos,
         agotados,
+        envios,
+        pedidos,
+        seguimientos,
+        feriados: datosUsuario?.feriados ?? [],
         descripciones: new Map(existencias.map((e) => [e.codigo, e.descripcion])),
         uds: new Map(existencias.map((e) => [e.codigo, e.ud])),
       },

@@ -1,9 +1,9 @@
 /**
  * Secciones del resumen mensual de labores (PRD §7, RF-7.6). El usuario elige cuáles incluir.
- * «Envíos a puestos» y «Pedidos tramitados» están en el PRD pero sus módulos (fase 2) aún no existen:
- * se agregan aquí cuando se construyan.
+ * «Envíos a puestos» y «Pedidos tramitados» dependen de los módulos `envios` y `pedidos`:
+ * el 771 los ve siempre; el 772 solo si el 771 se los habilita.
  */
-export const SECCIONES_RESUMEN = ['tareas', 'preconteo', 'traslados', 'danados', 'vencidos', 'agotados'] as const;
+export const SECCIONES_RESUMEN = ['tareas', 'preconteo', 'traslados', 'danados', 'vencidos', 'agotados', 'envios', 'pedidos'] as const;
 export type SeccionResumen = (typeof SECCIONES_RESUMEN)[number];
 
 export const ETIQUETA_SECCION: Record<SeccionResumen, string> = {
@@ -13,6 +13,8 @@ export const ETIQUETA_SECCION: Record<SeccionResumen, string> = {
   danados: 'Dañados',
   vencidos: 'Vencidos',
   agotados: 'Agotados',
+  envios: 'Envíos a puestos',
+  pedidos: 'Pedidos tramitados',
 };
 
 /** Módulo (de `modulosHabilitados`) que debe tener el usuario para ver cada sección; `null` = siempre. */
@@ -23,6 +25,8 @@ export const MODULO_DE_SECCION: Record<SeccionResumen, string | null> = {
   danados: 'danados',
   vencidos: null,
   agotados: null,
+  envios: 'envios',
+  pedidos: 'pedidos',
 };
 
 /**

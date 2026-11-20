@@ -38,6 +38,23 @@ service cloud.firestore {
     function soloCampos(permitidos) {
       return request.resource.data.keys().hasOnly(permitidos);
     }
+    // Pedido o envío programado (`tiposPedido` y `puestos`).
+    function programadoValido() {
+      return soloCampos(['nombre', 'recurrencias', 'anticipacion', 'activo', 'desde', 'notas'])
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 100
+        && request.resource.data.recurrencias is list
+        && request.resource.data.recurrencias.size() > 0
+        && request.resource.data.recurrencias.size() <= 6
+        && request.resource.data.anticipacion is int
+        && request.resource.data.anticipacion >= 0
+        && request.resource.data.anticipacion <= 10
+        && request.resource.data.activo is bool
+        && request.resource.data.desde.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.notas is string
+        && request.resource.data.notas.size() <= 500;
+    }
 
     // ───────── Catálogo compartido ─────────
     // Lectura para autenticados. Los códigos nuevos solo se crean (nunca se editan ni borran)
@@ -120,11 +137,23 @@ service cloud.firestore {
           && (!('fechaProgramada' in request.resource.data)
               || request.resource.data.fechaProgramada.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'));
       }
+      // Pedidos (tipos) y envíos (puestos): misma forma; la colección dice cuál es cuál. Solo el 771.
       match /tiposPedido/{id} {
-        allow read, write: if accesoModulo(uid, 'pedidos');
+        allow read, delete: if accesoModulo(uid, 'pedidos');
+        allow create, update: if accesoModulo(uid, 'pedidos') && programadoValido();
       }
       match /puestos/{id} {
-        allow read, write: if accesoModulo(uid, 'envios');
+        allow read, delete: if accesoModulo(uid, 'envios');
+        allow create, update: if accesoModulo(uid, 'envios') && programadoValido();
+      }
+      // Una fila por ocurrencia atendida: id = `${programadoId}_${fecha}`.
+      match /seguimientos/{id} {
+        allow read, delete: if accesoModulo(uid, 'pedidos') || accesoModulo(uid, 'envios');
+        allow create, update: if (accesoModulo(uid, 'pedidos') || accesoModulo(uid, 'envios'))
+          && soloCampos(['programadoId', 'fecha', 'estado'])
+          && request.resource.data.programadoId is string
+          && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.estado in ['en_tramite', 'enviado'];
       }
       match /espacios/{id} {
         allow read, write: if accesoModulo(uid, 'ubicaciones');

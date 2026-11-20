@@ -231,3 +231,34 @@ Decisiones tomadas donde el PRD era ambiguo. Revisar y corregir si no coinciden 
 - **Decidido:** un producto puede tener **varias ubicaciones vigentes a la vez**. Las ubicaciones se escriben en **texto libre** (sin mapa fijo, porque los nombres de estantes, tarimas y filas siguen sin confirmar); lo que no cambia se conserva y se confirma cada mes.
 - **Chango propone, la persona confirma, la app escribe.** La Function no escribe ubicaciones.
 - **No incluido en el PR 9** (Chango sigue de solo consulta): se construye en un PR siguiente junto con el módulo de ubicaciones.
+
+## 2026-11-20 · Calendario de envíos y pedidos semanales (dato confirmado)
+
+Dato dado por la persona usuaria del 771. Resuelve el pendiente «día de envío a V y confirmación de R, C y Z» (CLAUDE.md §12, PRD §3 y RF-5.1). Los módulos de envíos y pedidos (Fase 2) aún no están construidos: esto es la configuración inicial que traerán precargada.
+
+| Día | Qué sale o se tramita |
+| --- | --- |
+| Lunes | Envío a **R** (Rancho Redondo) |
+| Último jueves del mes | Envío a **R** (Rancho Redondo), además del lunes |
+| Martes | Envío a **C** (Cascajal) |
+| Miércoles | **Pedido semanal 772**, envío a **V** (Vista de Mar) y envío a **Z** (Zetillal) |
+| Jueves | **Pedido de sueros** |
+
+- Los días siguen siendo **configurables** (lo acordado en el PRD); estos son los valores iniciales.
+- «Último jueves del mes» es una regla de recurrencia distinta a «cada semana»: el modelo de `puestos`/`diaEnvio` debe poder expresar «cada semana el día X» y «último jueves del mes».
+- Los días siguen el calendario laboral (§5): si el día cae en feriado, no hay aviso ni recurrencia ese día. **Pendiente de confirmar:** si un envío que cae en feriado se corre al día hábil anterior o siguiente.
+- El pedido semanal 772 y el de sueros son **pedidos** (M4), no envíos a puestos; V y Z comparten el miércoles con el pedido del 772.
+
+## 2026-11-20 · Pedidos y envíos a puestos (M4 y M5)
+
+- **Alcance:** solo el 771. Recuerda el trámite (pendiente → en trámite → enviado); no maneja cantidades. Un envío pasa directo de pendiente a enviado; un pedido pasa por «en trámite».
+- **Modelo:** `tiposPedido` (pedidos) y `puestos` (envíos), con la misma forma: nombre, `recurrencias[]`, `anticipacion`, `activo`, `desde`, `notas`. La clase la da la colección. Lo hecho vive en `seguimientos/{programadoId_fecha}` (como `cumplimientos` en las tareas). Un programado puede tener **varias periodicidades**: R es «los lunes» + «el último jueves del mes» (nueva `ultimoDiaSemana`, solo para pedidos y envíos; las tareas no la usan).
+- **Anticipación en días hábiles** (no calendario): «2 días antes» de un lunes es el jueves. Valores iniciales: **envíos 2** (RF-5.2), **pedidos 1** (el PRD no lo fija; editable por cada uno). Va de 0 a 10.
+- **Precargados** (botón «Cargar pedidos y envíos», IDs fijos): R lunes y último jueves, C martes, V y Z miércoles, pedido semanal 772 miércoles, pedido de sueros jueves. Los demás tipos del RF-4.1 (rayos X, odontología, laboratorio, vacunas, psicotrópicos, bajos) **no tienen día confirmado: no se precargan**; se agregan con «Nuevo pedido o envío».
+- **Dónde se ve:** Hoy (atrasados de hasta 7 días, hoy, «para preparar» cuando ya toca avisar, y los próximos 7 días), chip «Pedidos y envíos», Agenda (pestaña nueva para editar y pausar) y Calendario. Cada acción tiene «Deshacer».
+- **Avisos:** a las 7:00 a. m., el día de `fechaAviso`, solo si sigue pendiente («Preparar envío · Cascajal (C) — Sale el martes 24.», «Poner en trámite · Pedido de sueros — Toca el jueves 19.»). Se pueden silenciar en Ajustes («Preparar envíos y pedidos»). Reglas y clave anti-repetición como el resto.
+- **Feriados (actualizado 2026-11-20):** si la fecha que toca cae en feriado, se **traslada al día hábil anterior** (decidido por la persona usuaria «por el momento»; puede cambiar). Retrocede varios días si también son feriados o fin de semana, y si dos fechas caen el mismo día cuenta una sola vez. El seguimiento y el aviso usan la fecha ya trasladada.
+- **Reglas de Firestore:** los dos tipos validan campos y tipos; `seguimientos` solo acepta `programadoId`, `fecha` y `estado`.
+- **Resumen mensual (RF-7.6):** nuevas secciones **«Envíos a puestos»** (puesto, fecha, enviado o sin enviar) y **«Pedidos tramitados»** (pedido, fecha, sin tramitar / en trámite / enviado, con el conteo de tramitados). Cuentan solo hasta hoy (o el fin del mes) y usan las fechas ya trasladadas por feriados. Van al final del resumen. Las ve el 771 siempre; el 772 solo si el 771 le habilita los módulos `envios` o `pedidos`, igual que las demás secciones con módulo.
+- **Aún no incluido:** que Chango IA conozca la agenda de pedidos y envíos.
+- **Pruebas:** unitarias de dominio, avisos y resumen, y una prueba desechable contra el emulador de Firestore (fuera del repo) con las reglas (el 771 sí; otro usuario y el 772 sin módulo no; campos extra, anticipación fuera de 0–10, nombre vacío y estados inválidos se rechazan; el 772 con módulos habilitados sí) y la Function programada (aviso a las 7:00, sin repetir en la misma franja, con el feriado trasladado). **No probado en el navegador:** las pantallas nuevas solo pasan tipos, lint y build.

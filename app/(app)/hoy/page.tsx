@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Card } from '@/components/ui/Card';
+import { SeccionPedidosEnvios } from '@/components/pedidos/SeccionPedidosEnvios';
 import { SeccionTareasHoy } from '@/components/tareas/SeccionTareasHoy';
 import { ChipAlerta } from '@/components/ui/ChipAlerta';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -16,6 +17,8 @@ import { suscribirUltimaImportacion, type Importacion } from '@/lib/db/importaci
 import { suscribirTraslados } from '@/lib/db/traslados';
 import { trasladosPendientes, type RegistroTraslado } from '@/lib/domain/traslados';
 import { estadoStock } from '@/lib/domain/stock';
+import { contarPendientes, vistaPedidosEnvios } from '@/lib/domain/pedidosEnvios';
+import { usePedidosEnvios } from '@/lib/pedidos/usePedidosEnvios';
 import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
 function saludo(ahora: Date): string {
@@ -47,6 +50,13 @@ export default function Hoy() {
     if (es771) bajas.push(suscribirTraslados(uid, setTraslados));
     return () => bajas.forEach((b) => b());
   }, [uid, es771]);
+
+  const pe = usePedidosEnvios();
+  // `null` mientras carga o si aún no hay pedidos ni envíos cargados.
+  const pedidosEnvios = useMemo(() => {
+    if (!pe.aplica || pe.cargando || pe.programados.length === 0) return null;
+    return contarPendientes(vistaPedidosEnvios(pe.programados, pe.seguimientos, hoyCostaRica(), pe.feriados));
+  }, [pe.aplica, pe.cargando, pe.programados, pe.seguimientos, pe.feriados]);
 
   const { riesgos, hayConsumos } = useRiesgo(existencias);
 
@@ -89,7 +99,7 @@ export default function Hoy() {
         {es771 && (
           <ChipAlerta href="/registros/traslados/" etiqueta="Traslados pendientes" valor={traslados === undefined ? null : trasladosPendientes(traslados).length} tono="info" icono={ArrowRightLeft} />
         )}
-        <ChipAlerta href="/agenda/" etiqueta="Pedidos y envíos" valor={null} tono="info" icono={CalendarClock} />
+        {es771 && <ChipAlerta href="/agenda/" etiqueta="Pedidos y envíos" valor={pedidosEnvios} tono="info" icono={CalendarClock} />}
       </section>
 
       {ultima === null && (
@@ -120,6 +130,8 @@ export default function Hoy() {
           </Link>
         </Card>
       )}
+
+      <SeccionPedidosEnvios />
 
       <SeccionTareasHoy />
     </Pantalla>

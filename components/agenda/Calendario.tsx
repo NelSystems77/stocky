@@ -2,9 +2,10 @@
 
 import { addMonths, format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, PackageCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PackageCheck, Send } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { esSegundoSabado, hoyCostaRica, inicioSemana, rangoCuadriculaMes, sumarDias } from '@/lib/domain/calendario';
+import { estaCerrada, ETIQUETA_ESTADO, ocurrenciasProgramadas, type OcurrenciaProgramada, type Programado, type Seguimiento } from '@/lib/domain/pedidosEnvios';
 import { estaAbierta, ocurrencias, type Cumplimiento, type Ocurrencia, type Tarea } from '@/lib/domain/tareas';
 import type { FechaISO } from '@/lib/domain/types';
 import { useFeriados } from '@/lib/tareas/useFeriados';
@@ -39,7 +40,29 @@ function Item({ o }: { o: Ocurrencia }) {
   );
 }
 
-function ListaDia({ fecha, items, conTitulo }: { fecha: FechaISO; items: Ocurrencia[]; conTitulo: boolean }) {
+function ItemProgramado({ o }: { o: OcurrenciaProgramada }) {
+  const Icono = o.clase === 'envio' ? Send : PackageCheck;
+  const cerrada = estaCerrada(o);
+  return (
+    <li className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
+      <Icono aria-hidden className="size-4 shrink-0 text-text-muted" />
+      <span className={`min-w-0 flex-1 truncate ${cerrada ? 'text-text-muted line-through' : ''}`}>{o.nombre}</span>
+      {o.estado !== 'pendiente' && <span className={`shrink-0 text-xs ${cerrada ? 'text-ok' : 'text-info'}`}>{ETIQUETA_ESTADO[o.estado]}</span>}
+    </li>
+  );
+}
+
+function ListaDia({
+  fecha,
+  items,
+  programadas,
+  conTitulo,
+}: {
+  fecha: FechaISO;
+  items: Ocurrencia[];
+  programadas: OcurrenciaProgramada[];
+  conTitulo: boolean;
+}) {
   const ingreso = esSegundoSabado(fecha);
   return (
     <section aria-label={fmt(fecha, "EEEE d 'de' MMMM")} className="flex flex-col gap-1.5">
@@ -50,9 +73,12 @@ function ListaDia({ fecha, items, conTitulo }: { fecha: FechaISO; items: Ocurren
           Ingreso de mercadería
         </p>
       )}
-      {items.length === 0 && !ingreso && <p className="text-sm text-text-muted">Sin tareas.</p>}
-      {items.length > 0 && (
+      {items.length === 0 && programadas.length === 0 && !ingreso && <p className="text-sm text-text-muted">Sin tareas.</p>}
+      {(items.length > 0 || programadas.length > 0) && (
         <ul className="flex flex-col gap-1.5">
+          {programadas.map((o) => (
+            <ItemProgramado key={`${o.programadoId}_${o.fecha}`} o={o} />
+          ))}
           {items.map((o) => (
             <Item key={`${o.tareaId}_${o.fechaOrigen}`} o={o} />
           ))}
@@ -62,7 +88,18 @@ function ListaDia({ fecha, items, conTitulo }: { fecha: FechaISO; items: Ocurren
   );
 }
 
-export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplimientos: Cumplimiento[] }) {
+interface PropsCalendario {
+  tareas: Tarea[];
+  cumplimientos: Cumplimiento[];
+  /** Pedidos y envíos del 771 (vacío para quien no los tiene). */
+  programados?: Programado[];
+  seguimientos?: Seguimiento[];
+}
+
+const SIN_PROGRAMADOS: Programado[] = [];
+const SIN_SEGUIMIENTOS: Seguimiento[] = [];
+
+export function Calendario({ tareas, cumplimientos, programados = SIN_PROGRAMADOS, seguimientos = SIN_SEGUIMIENTOS }: PropsCalendario) {
   const hoy = hoyCostaRica();
   const feriados = useFeriados();
   const [vista, setVista] = useState<Vista>('mes');
@@ -84,6 +121,14 @@ export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplim
     }
     return mapa;
   }, [tareas, cumplimientos, desde, hasta, feriados]);
+
+  const progPorDia = useMemo(() => {
+    const mapa = new Map<FechaISO, OcurrenciaProgramada[]>();
+    for (const o of ocurrenciasProgramadas(programados, seguimientos, desde, hasta, feriados)) {
+      mapa.set(o.fecha, [...(mapa.get(o.fecha) ?? []), o]);
+    }
+    return mapa;
+  }, [programados, seguimientos, desde, hasta, feriados]);
 
   function mover(delta: 1 | -1) {
     const nuevo =
@@ -141,12 +186,12 @@ export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplim
         </button>
       </div>
 
-      {vista === 'dia' && <ListaDia fecha={ref} items={porDia.get(ref) ?? []} conTitulo={false} />}
+      {vista === 'dia' && <ListaDia fecha={ref} items={porDia.get(ref) ?? []} programadas={progPorDia.get(ref) ?? []} conTitulo={false} />}
 
       {vista === 'semana' && (
         <div className="flex flex-col gap-4">
           {dias(desde, hasta).map((f) => (
-            <ListaDia key={f} fecha={f} items={porDia.get(f) ?? []} conTitulo />
+            <ListaDia key={f} fecha={f} items={porDia.get(f) ?? []} programadas={progPorDia.get(f) ?? []} conTitulo />
           ))}
         </div>
       )}
@@ -161,6 +206,7 @@ export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplim
             ))}
             {dias(desde, hasta).map((f) => {
               const items = porDia.get(f) ?? [];
+              const progAbiertas = (progPorDia.get(f) ?? []).filter((o) => !estaCerrada(o)).length;
               const abiertas = items.filter(estaAbierta).length;
               const fueraDelMes = f.slice(0, 7) !== ref.slice(0, 7);
               return (
@@ -168,20 +214,21 @@ export function Calendario({ tareas, cumplimientos }: { tareas: Tarea[]; cumplim
                   key={f}
                   type="button"
                   aria-pressed={sel === f}
-                  aria-label={`${fmt(f, "EEEE d 'de' MMMM")}${abiertas ? `, ${abiertas} pendientes` : ''}${esSegundoSabado(f) ? ', ingreso de mercadería' : ''}`}
+                  aria-label={`${fmt(f, "EEEE d 'de' MMMM")}${abiertas ? `, ${abiertas} pendientes` : ''}${progAbiertas ? `, ${progAbiertas} pedidos o envíos` : ''}${esSegundoSabado(f) ? ', ingreso de mercadería' : ''}`}
                   onClick={() => setSel(f)}
                   className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-sm transition duration-200 ${sel === f ? 'bg-surface-2' : ''} ${fueraDelMes ? 'text-text-muted/50' : ''} ${f === hoy ? 'ring-1 ring-accent' : ''}`}
                 >
                   {Number(f.slice(8))}
                   <span className="flex h-1.5 gap-0.5">
                     {abiertas > 0 && <span className="size-1.5 rounded-full bg-accent" />}
+                    {progAbiertas > 0 && <span className="size-1.5 rounded-full bg-text-muted" />}
                     {esSegundoSabado(f) && <span className="size-1.5 rounded-full bg-info" />}
                   </span>
                 </button>
               );
             })}
           </div>
-          <ListaDia fecha={sel} items={porDia.get(sel) ?? []} conTitulo />
+          <ListaDia fecha={sel} items={porDia.get(sel) ?? []} programadas={progPorDia.get(sel) ?? []} conTitulo />
         </>
       )}
     </div>

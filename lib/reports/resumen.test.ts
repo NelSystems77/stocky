@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Ocurrencia } from '@/lib/domain/tareas';
+import { programadosSugeridos } from '@/lib/domain/pedidosEnvios';
 import { generarExcelResumen } from './excel';
 import { generarPdfResumen } from './pdf';
 import { inicioFinMes, reporteResumenMensual, type DatosMes } from './resumen';
@@ -34,6 +35,14 @@ const datos: DatosMes = {
     { id: '1', codigo: '110-16-0010', fechaAgotado: '2026-11-03', fechaIngreso: '2026-11-12', origen: 'detectado', notas: '' },
     { id: '2', codigo: '110-16-0010', fechaAgotado: '2026-09-01', fechaIngreso: '2026-09-10', origen: 'detectado', notas: '' },
   ],
+  envios: programadosSugeridos('2026-11-01').filter((p) => p.clase === 'envio'),
+  pedidos: programadosSugeridos('2026-11-01').filter((p) => p.clase === 'pedido'),
+  seguimientos: [
+    { programadoId: 'sug-envio-c', fecha: '2026-11-03', estado: 'enviado' },
+    { programadoId: 'sug-pedido-sueros', fecha: '2026-11-05', estado: 'en_tramite' },
+    { programadoId: 'sug-pedido-sueros', fecha: '2026-11-12', estado: 'enviado' },
+  ],
+  feriados: [],
   descripciones: new Map([['110-16-0010', 'Amoxicilina 500 mg']]),
   uds: new Map([['110-16-0010', 'CN']]),
 };
@@ -50,9 +59,9 @@ describe('reporteResumenMensual', () => {
     const r = reporteResumenMensual(datos, ['danados', 'tareas'], emisor);
     expect(r.secciones.map((s) => s.titulo)).toEqual(['Tareas', 'Dañados']);
   });
-  it('si se eligen todas salen las seis', () => {
-    const r = reporteResumenMensual(datos, ['tareas', 'preconteo', 'traslados', 'danados', 'vencidos', 'agotados'], emisor);
-    expect(r.secciones).toHaveLength(6);
+  it('si se eligen todas salen las ocho, con envíos y pedidos al final', () => {
+    const r = reporteResumenMensual(datos, ['pedidos', 'tareas', 'preconteo', 'traslados', 'danados', 'vencidos', 'agotados', 'envios'], emisor);
+    expect(r.secciones.map((x) => x.titulo)).toEqual(['Tareas', 'Preconteo', 'Traslados', 'Dañados', 'Vencidos', 'Agotados', 'Envíos a puestos', 'Pedidos tramitados']);
   });
   it('tareas: cuenta por estado y calcula el cumplimiento', () => {
     const s = reporteResumenMensual(datos, ['tareas'], emisor).secciones[0]!;
@@ -86,6 +95,38 @@ describe('reporteResumenMensual', () => {
     expect(s.filas).toHaveLength(1);
     expect(s.filas[0]![4]).toBe(9);
   });
+  // Noviembre 2026, hasta el 6 (viernes): 2, 3, 4, 5 y 6 son días hábiles.
+  const hasta6 = { ...datos, hasta: '2026-11-06' };
+  it('envíos: cada envío del mes hasta hoy, con su estado', () => {
+    const s = reporteResumenMensual(hasta6, ['envios'], emisor).secciones[0]!;
+    expect(s.filas).toEqual([
+      ['Envío a Rancho Redondo (R)', '2 nov 2026', 'Sin enviar'],
+      ['Envío a Cascajal (C)', '3 nov 2026', 'Enviado'],
+      ['Envío a Vista de Mar (V)', '4 nov 2026', 'Sin enviar'],
+      ['Envío a Zetillal (Z)', '4 nov 2026', 'Sin enviar'],
+    ]);
+    expect(s.resumen).toEqual(['Envíos: 4 · enviados 1 · sin enviar 3']);
+  });
+  it('envíos: un feriado traslada el envío al día hábil anterior', () => {
+    // Martes 3 es feriado → C sale el lunes 2.
+    const s = reporteResumenMensual({ ...hasta6, feriados: ['2026-11-03'], seguimientos: [] }, ['envios'], emisor).secciones[0]!;
+    expect(s.filas[0]).toEqual(['Envío a Cascajal (C)', '2 nov 2026', 'Sin enviar']);
+    expect(s.filas.some((f) => f[1] === '3 nov 2026')).toBe(false);
+  });
+  it('pedidos: sin tramitar, en trámite y enviados', () => {
+    const s = reporteResumenMensual({ ...datos, hasta: '2026-11-12' }, ['pedidos'], emisor).secciones[0]!;
+    expect(s.filas).toEqual([
+      ['Pedido semanal 772', '4 nov 2026', 'Sin tramitar'],
+      ['Pedido de sueros', '5 nov 2026', 'En trámite'],
+      ['Pedido semanal 772', '11 nov 2026', 'Sin tramitar'],
+      ['Pedido de sueros', '12 nov 2026', 'Enviado'],
+    ]);
+    expect(s.resumen).toEqual(['Pedidos: 4 · tramitados 2 (en trámite 1, enviados 1) · sin tramitar 2']);
+  });
+  it('no cuenta lo que aún no llega (después de `hasta`)', () => {
+    const s = reporteResumenMensual({ ...datos, hasta: '2026-11-01' }, ['envios', 'pedidos'], emisor).secciones;
+    expect(s.every((x) => x.filas.length === 0 && x.resumen.length === 0)).toBe(true);
+  });
   it('nombre de archivo y detalle llevan el mes', () => {
     const r = reporteResumenMensual(datos, ['tareas'], emisor);
     expect(r.nombreArchivo).toBe('resumen_labores_202611');
@@ -94,7 +135,7 @@ describe('reporteResumenMensual', () => {
 });
 
 describe('generadores', () => {
-  const resumen = reporteResumenMensual(datos, ['tareas', 'danados', 'vencidos'], emisor);
+  const resumen = reporteResumenMensual(datos, ['tareas', 'danados', 'vencidos', 'envios', 'pedidos'], emisor);
   it('PDF con varias secciones empieza con %PDF', async () => {
     const bytes = await generarPdfResumen(resumen);
     expect(new TextDecoder().decode(bytes.slice(0, 4))).toBe('%PDF');
