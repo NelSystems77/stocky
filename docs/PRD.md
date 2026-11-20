@@ -359,7 +359,7 @@ Faltan cinco definiciones antes de desarrollar; el resto del PRD está cerrado.
 
 **Por confirmar**
 
-- [ ] Día de envío a V y confirmación de R, C y Z.
+- [x] Día de envío a V y confirmación de R, C y Z (decidido el 2026-11-20: R lunes y último jueves, C martes, V y Z miércoles; ver `docs/decisiones.md`).
 - [ ] Cantidad y nombres de estantes, tarimas y filas del 771, para dibujar el mapa.
 - [ ] PDF reales (no capturas) de los reportes de existencias, lotes y vencimientos, y consumos, para confirmar que son de texto y fijar el lector.
 - [ ] Lista completa de códigos UD (CN, FC, TR, tubo, ampolla, frasco…) y su factor.
