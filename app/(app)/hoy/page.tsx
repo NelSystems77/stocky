@@ -19,6 +19,8 @@ import { trasladosPendientes, type RegistroTraslado } from '@/lib/domain/traslad
 import { estadoStock } from '@/lib/domain/stock';
 import { contarPendientes, vistaPedidosEnvios } from '@/lib/domain/pedidosEnvios';
 import { usePedidosEnvios } from '@/lib/pedidos/usePedidosEnvios';
+import { contarUrgentes } from '@/lib/domain/vencimientos';
+import { useVencimientos } from '@/lib/vencimientos/useVencimientos';
 import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
 function saludo(ahora: Date): string {
@@ -59,6 +61,10 @@ export default function Hoy() {
     return contarPendientes(vistaPedidosEnvios(pe.programados, pe.seguimientos, hoyCostaRica(), pe.feriados));
   }, [pe.aplica, pe.cargando, pe.programados, pe.seguimientos, pe.feriados]);
 
+  const venc = useVencimientos();
+  // `null` mientras carga o si aún no hay lotes cargados.
+  const vencimientos = venc.cargando || venc.lotes.length === 0 ? null : contarUrgentes(venc.resumen);
+
   const { riesgos, hayConsumos } = useRiesgo(existencias);
 
   // `null` mientras no haya existencias importadas (el chip muestra un guion, sin color de alerta).
@@ -95,7 +101,7 @@ export default function Hoy() {
       <section aria-label="Alertas" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <ChipAlerta href="/inventario/agotados/" etiqueta="Agotados" valor={conteos.agotados} tono="critical" icono={PackageX} />
         <ChipAlerta href="/inventario/" etiqueta="Bajos" valor={conteos.bajos} tono="low" icono={PackageMinus} />
-        <ChipAlerta href="/inventario/" etiqueta="Vencimientos" valor={null} tono="critical" icono={Clock} />
+        <ChipAlerta href="/inventario/vencimientos/" etiqueta="Vencimientos" valor={vencimientos} tono="critical" icono={Clock} />
         <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={enRiesgo} tono="warning" icono={AlertTriangle} />
         {es771 && (
           <ChipAlerta href="/registros/traslados/" etiqueta="Traslados pendientes" valor={traslados === undefined ? null : trasladosPendientes(traslados).length} tono="info" icono={ArrowRightLeft} />

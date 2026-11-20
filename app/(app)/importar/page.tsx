@@ -154,6 +154,7 @@ export default function Importar() {
       lotes: p.lotes,
       anteriores: p.anteriores,
       cambios: p.revision.cambios,
+      hayAnterior: p.revision.hayAnterior,
     });
     void confirmada.catch(() => mostrar('No se pudieron sincronizar los lotes con el servidor. Se reintentará.', { tono: 'error' }));
     mostrar(online ? `Lotes guardados · ${p.lotes.length} lotes.` : 'Guardado en este dispositivo. Se sincroniza al volver la conexión.', { tono: 'ok' });

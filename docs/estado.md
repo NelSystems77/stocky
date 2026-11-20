@@ -24,7 +24,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | Dañados, preconteo, traslados (orden SAP), vencidos (a mano), resumen mensual PDF/Excel | Hecho |
 | Chango IA (solo consulta; cascada Flash → Flash-Lite; tope de 40 preguntas por día) | Hecho |
 | **Pedidos y envíos a puestos (M4 y M5)** | En el PR 10 |
-| **Lotes y vencimientos: lector + revisión de cambios + guardado** (sin alertas ni pantalla de Vencimientos) | En la rama `fase-2-vencimientos-lotes` |
+| **Lotes y vencimientos:** lector, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves | En la rama `fase-2-vencimientos-lotes` |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
@@ -49,9 +49,8 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - **App Check fase 2** (`enforceAppCheck`): solo tras revisar Firebase Console → App Check → Métricas y con visto bueno explícito.
 
 ### Código pendiente
-- **Vencimientos, lo que falta del M2** (el lector ya está): pantalla de lotes ordenada por urgencia (RF-2.1), alertas A1/A2, gestionar lotes (RF-2.4), vencidos automáticos (RF-2.5), proyección entre cargas (RF-2.6) y pasar la tarea y el aviso de «jueves» a «tercer jueves» y «+15 días» (RF-1.8). Los lotes ya se guardan en `usuarios/{uid}/lotes` con `noMedicamento` para dejar condones, etiquetas y bolsas fuera de las alertas.
-- Guardar el **detalle** de cada cambio por carga de lotes (hoy solo el conteo en la importación).
-- Probar la pantalla de importar con el PDF de lotes en el navegador (solo hay pruebas unitarias, del PDF real y de reglas).
+- **Vencimientos, lo que falta:** umbrales A2 editables en Ajustes; aviso push de lotes por vencer; exportar la lista a PDF/Excel; que Chango IA conozca los lotes; la proyección no suma ingresos entre cargas.
+- Probar en el navegador la importación del PDF de lotes y la pantalla de Vencimientos (solo hay pruebas unitarias, del PDF real, de reglas y de la Function en emulador).
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
 - **Conteo físico contra SIFA** (`CLAUDE.md` §13, fuera del PRD): se construye después del consolidado de Inventario.
 - Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
