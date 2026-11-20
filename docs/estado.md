@@ -24,7 +24,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | Dañados, preconteo, traslados (orden SAP), vencidos (a mano), resumen mensual PDF/Excel | Hecho |
 | Chango IA (solo consulta; cascada Flash → Flash-Lite; tope de 40 preguntas por día) | Hecho |
 | **Pedidos y envíos a puestos (M4 y M5)** | En el PR 10 |
-| **Lotes y vencimientos:** lector, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves | En la rama `fase-2-vencimientos-lotes` |
+| **Lotes y vencimientos:** lector, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | En la rama `fase-2-vencimientos-lotes` |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
@@ -49,8 +49,8 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - **App Check fase 2** (`enforceAppCheck`): solo tras revisar Firebase Console → App Check → Métricas y con visto bueno explícito.
 
 ### Código pendiente
-- **Vencimientos, lo que falta:** umbrales A2 editables en Ajustes; aviso push de lotes por vencer; exportar la lista a PDF/Excel; que Chango IA conozca los lotes; la proyección no suma ingresos entre cargas.
-- Probar en el navegador la importación del PDF de lotes y la pantalla de Vencimientos (solo hay pruebas unitarias, del PDF real, de reglas y de la Function en emulador).
+- **Vencimientos:** completo (umbrales editables, aviso push, exportar a PDF/Excel, Chango con lotes y aviso de ingresos sin sumar). Queda que la proyección sume ingresos, imposible sin los lotes que entraron: el reporte real los trae.
+- Probar en el navegador Ajustes (umbrales), la importación del PDF de lotes, la pantalla de Vencimientos y su exportación (solo hay pruebas unitarias, del PDF real, de reglas y de la Function en emulador).
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
 - **Conteo físico contra SIFA** (`CLAUDE.md` §13, fuera del PRD): se construye después del consolidado de Inventario.
 - Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
@@ -58,7 +58,7 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - **Alta manual de un agotado** (RF-3.4).
 - Pantalla para que el **771 habilite módulos al 772** y navegación del 772 con esos módulos (la callable ya existe; la UI solo está en `/admin`).
 - Resumen mensual automático del último día hábil (requiere Function programada).
-- Chango IA aún no conoce la agenda de pedidos y envíos (en `lib/domain/chango.ts` el contexto dice que no está disponible; actualizarlo).
+- Chango IA aún no conoce la agenda de pedidos y envíos ni las ubicaciones (su contexto dice que no están disponibles); sí conoce lotes y vencimientos.
 - Editar un dañado, un traslado o una entrega ya guardados; cantidades recibidas distintas de las enviadas; recordatorio de entregas sin recibir.
 
 ### Fase 5 (mejoras)

@@ -13,7 +13,9 @@ import {
   promptSistema,
   seleccionarProductos,
   type DatosChango,
+  type LoteChango,
   type ProductoChango,
+  type VencimientosChango,
 } from './chango';
 
 const prod = (codigo: string, descripcion: string, extra: Partial<ProductoChango> = {}): ProductoChango => ({
@@ -216,3 +218,76 @@ describe('consultarGemini', () => {
     expect(r.estado).toBe('ok');
   });
 });
+
+describe('armarContexto: vencimientos (lotes)', () => {
+  const lote = (extra: Partial<LoteChango> = {}): LoteChango => ({
+    codigo: '110-16-0010',
+    descripcion: 'PARACETAMOL 500 MG',
+    ud: 'CN',
+    lote: 'A1',
+    vence: '2028-01-31',
+    cantidad: 100000,
+    proyectado: false,
+    dias: 437,
+    nivel: null,
+    ...extra,
+  });
+  const venc = (lotes: LoteChango[], extra: Partial<VencimientosChango> = {}): VencimientosChango => ({
+    resumen: { vencidos: lotes.filter((l) => l.nivel === 'vencido').length, alta: lotes.filter((l) => l.nivel === 'alta').length, media: lotes.filter((l) => l.nivel === 'media').length, a1: lotes.filter((l) => l.excedente !== undefined).length, sinConsumo: 0 },
+    umbrales: { alta: 30, media: 90 },
+    ultimaCarga: '2026-11-20',
+    lotes,
+    ingresosSinSumar: [],
+    ...extra,
+  });
+  const contexto = (lotes: LoteChango[], extra: Partial<VencimientosChango> = {}, pregunta = '') =>
+    armarContexto(base({ productos: [prod('110-16-0010', 'PARACETAMOL 500 MG')], vencimientos: venc(lotes, extra) }), pregunta);
+
+  it('sin lotes cargados lo dice y no inventa fechas', () => {
+    const t = armarContexto(base());
+    expect(t).toContain('Todavía no hay reporte de lotes y vencimientos cargado');
+    expect(armarContexto(base({ vencimientos: venc([]) }))).toContain('Todavía no hay reporte de lotes');
+  });
+  it('ya no dice que no tiene lotes ni vencimientos por lote', () => {
+    const t = contexto([lote()]);
+    expect(t).not.toMatch(/NO tiene[^]*lotes/);
+    expect(t).toContain('Ubicaciones de productos y agenda de pedidos y envíos');
+  });
+  it('resume por nivel con la fecha de la última carga y los umbrales', () => {
+    const t = contexto([lote({ nivel: 'vencido', dias: -19, vence: '2026-11-01' }), lote({ lote: 'B', nivel: 'alta', dias: 20, vence: '2026-12-10' }), lote({ lote: 'C', nivel: 'media', dias: 60 }), lote({ lote: 'D' })]);
+    expect(t).toContain('Último reporte de lotes y vencimientos: 2026-11-20. Lotes con existencia: 4.');
+    expect(t).toContain('Vencidos con existencia: 1 · prioridad alta: 1 · prioridad media: 1');
+    expect(t).toContain('faltan 30 días o menos');
+    expect(t).toContain('media = 90 días');
+  });
+  it('lista los vencidos y los de prioridad alta con lote, fecha y cantidad en UD', () => {
+    const t = contexto([lote({ nivel: 'vencido', dias: -19, vence: '2026-11-01', cantidad: 30000 }), lote({ lote: 'B', nivel: 'alta', dias: 20, vence: '2026-12-10', cantidad: 20000, proyectado: true, excedente: 15000 })]);
+    expect(t).toContain('## Lotes vencidos con existencia');
+    expect(t).toContain('lote A1 · vence 2026-11-01 (venció hace 19 d.) · 300 CN · VENCIDO');
+    expect(t).toContain('## Lotes de prioridad alta');
+    expect(t).toContain('lote B · vence 2026-12-10 (vence en 20 d.) · ≈ 200 CN · prioridad alta · sobran ≈ 150 CN que no se consumirán a tiempo');
+  });
+  it('los de prioridad media y sin alerta no se listan, solo se cuentan', () => {
+    const t = contexto([lote({ nivel: 'media', dias: 60 }), lote({ lote: 'Z' })]);
+    expect(t).not.toContain('## Lotes de prioridad alta');
+    expect(t).not.toContain('## Lotes vencidos');
+    expect(t).toContain('prioridad media: 1');
+  });
+  it('si la pregunta nombra un producto, trae sus lotes ordenados por vencimiento', () => {
+    const t = contexto([lote({ lote: 'TARDE', vence: '2029-01-31' }), lote({ lote: 'PRONTO', vence: '2027-06-30' })], {}, '¿Cuándo vencen los lotes de paracetamol?');
+    expect(t).toContain('## Lotes de los productos que menciona la pregunta');
+    expect(t.indexOf('lote PRONTO')).toBeLessThan(t.indexOf('lote TARDE'));
+  });
+  it('avisa de ingresos posteriores al último reporte de lotes', () => {
+    expect(contexto([lote()], { ingresosSinSumar: ['2026-11-14'] })).toContain('hubo ingreso de mercadería (2026-11-14) después del último reporte de lotes');
+  });
+  it('avisa cuántos lotes no tienen consumo', () => {
+    const v = venc([lote()]);
+    expect(armarContexto(base({ vencimientos: { ...v, resumen: { ...v.resumen, sinConsumo: 7 } } }))).toContain('7 lotes son de productos sin consumo cargado');
+  });
+  it('limita las listas largas', () => {
+    const muchos = Array.from({ length: 40 }, (_, i) => lote({ lote: `L${i}`, nivel: 'alta', dias: 10 }));
+    expect(contexto(muchos)).toContain('(+15 más no listados)');
+  });
+});
+

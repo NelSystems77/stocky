@@ -13,18 +13,21 @@ import {
   MENSAJE_LIMITE_USUARIO,
   MENSAJE_SIN_CUOTA,
   type DatosChango,
+  type LoteChango,
   type Fetcher,
   type ProductoChango,
   type TurnoChango,
 } from './dominio/chango.js';
 import type { RegistroDanado } from './dominio/danados.js';
 import { normalizarFeriados } from './dominio/feriados.js';
+import { normalizarUmbralesVencimiento } from './dominio/vencimientos.js';
 import type { RegistroPreconteo } from './dominio/preconteo.js';
 import { analizarRiesgo, normalizarMargen, type ConsumoImportado } from './dominio/riesgo.js';
 import { vistaHoy, type Cumplimiento, type Tarea } from './dominio/tareas.js';
 import type { RegistroTraslado } from './dominio/traslados.js';
 import type { RegistroVencido } from './dominio/vencidos.js';
 import { CumplimientoSchema, TareaSchema } from './tick.js';
+import { consumosRecientes, evaluarCuenta } from './vencimientos.js';
 
 export const PeticionChango = z.object({
   pregunta: z.string().min(1).max(4000),
@@ -82,21 +85,6 @@ function leer<T extends z.ZodType>(docs: { id: string; data: () => DocumentData 
   return lista;
 }
 
-/** Consumos de las últimas 4 cargas de «Productos en despacho», por código (igual que el cliente). */
-async function consumosRecientes(db: Firestore, uid: string): Promise<Map<string, ConsumoImportado[]>> {
-  const base = db.doc(`usuarios/${uid}`);
-  const imp = await base.collection('importaciones').orderBy('fechaReporte', 'desc').limit(16).get();
-  const ids = imp.docs.filter((d) => d.get('tipoReporte') === 'productosEnDespacho').slice(0, 4).map((d) => d.id);
-  const mapa = new Map<string, ConsumoImportado[]>();
-  if (ids.length === 0) return mapa;
-  const snap = await base.collection('consumos').where('importacionId', 'in', ids).get();
-  for (const d of snap.docs) {
-    const r = z.object({ codigo: z.string(), periodo: Fecha, cantidad: z.number().finite() }).safeParse(d.data());
-    if (r.success) mapa.set(r.data.codigo, [...(mapa.get(r.data.codigo) ?? []), { periodo: r.data.periodo, cantidad: r.data.cantidad }]);
-  }
-  return mapa;
-}
-
 /**
  * Arma lo que Chango puede saber. Lee SOLO las colecciones de `uid` (quien pregunta) y solo de los módulos
  * que su cuenta tiene habilitados. Nunca datos de pacientes: Stocky no los guarda.
@@ -114,9 +102,10 @@ export async function cargarDatos(db: Firestore, uid: string, unidad: string, mo
     base.collection('cumplimientos').where('fechaOrigen', '>=', sumarDias(hoy, -60)).get(),
     consumosRecientes(db, uid),
   ]);
-  const ajustes = (userDoc.get('ajustes') ?? {}) as { feriados?: unknown; umbrales?: { margenRiesgo?: unknown } };
+  const ajustes = (userDoc.get('ajustes') ?? {}) as { feriados?: unknown; umbrales?: { margenRiesgo?: unknown; vencimiento?: unknown } };
   const feriados = normalizarFeriados(ajustes.feriados);
   const margen = normalizarMargen(ajustes.umbrales?.margenRiesgo);
+  const umbrales = normalizarUmbralesVencimiento(ajustes.umbrales?.vencimiento);
 
   const productos: ProductoChango[] = [];
   for (const d of snapExist.docs) {
@@ -134,6 +123,21 @@ export async function cargarDatos(db: Firestore, uid: string, unidad: string, mo
   const tareas = leer(snapTareas.docs, TareaSchema) as unknown as Tarea[];
   const cumplimientos = leer(snapCumpl.docs, CumplimientoSchema) as unknown as Cumplimiento[];
   const vista = vistaHoy(tareas, cumplimientos, hoy, feriados);
+
+  // Lotes y vencimientos: mismo cálculo que la pantalla (proyección + A1/A2).
+  const cuenta = await evaluarCuenta(db, uid, { hoy, feriados, margen, umbrales });
+  const lotesChango: LoteChango[] = (cuenta?.alertas ?? []).map((a) => ({
+    codigo: a.lote.codigo,
+    descripcion: a.lote.descripcion,
+    ud: a.lote.ud,
+    lote: a.lote.lote,
+    vence: a.lote.vence,
+    cantidad: a.lote.cantidad,
+    proyectado: a.lote.proyectado,
+    dias: a.diasParaVencer,
+    nivel: a.nivel,
+    ...(a.a1 ? { excedente: a.a1.excedente } : {}),
+  }));
 
   const vacio = { docs: [] as { id: string; data: () => DocumentData }[] };
   const [snapTras, snapPre, snapDan, snapVen] = await Promise.all([
@@ -154,6 +158,9 @@ export async function cargarDatos(db: Firestore, uid: string, unidad: string, mo
     preconteos: leer(snapPre.docs, PreconteoDoc) as unknown as RegistroPreconteo[],
     danados: leer(snapDan.docs, DanadoDoc) as unknown as RegistroDanado[],
     vencidos: leer(snapVen.docs, VencidoDoc) as unknown as RegistroVencido[],
+    ...(cuenta
+      ? { vencimientos: { resumen: cuenta.resumen, umbrales, ultimaCarga: cuenta.ultimaCarga, lotes: lotesChango, ingresosSinSumar: cuenta.ingresosSinSumar } }
+      : {}),
   };
 }
 
