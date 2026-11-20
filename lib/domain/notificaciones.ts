@@ -1,4 +1,5 @@
-import { esDiaLaborable } from './calendario';
+import { diaSemana, esDiaLaborable, sumarDias } from './calendario';
+import { DIAS_NOMBRE, ocurrenciasProgramadas, type Programado, type Seguimiento } from './pedidosEnvios';
 import { vistaHoy, type Cumplimiento, type Tarea } from './tareas';
 import type { FechaISO } from './types';
 
@@ -10,12 +11,15 @@ export interface AjustesNotificaciones {
   resumenMediodia: boolean;
   /** Recordatorio a la hora de cada tarea que tiene hora. */
   recordatorios: boolean;
+  /** «Preparar envío / poner en trámite el pedido», según la anticipación de cada uno (7:00 a. m.). */
+  pedidosEnvios: boolean;
 }
 
 export const AJUSTES_NOTIFICACIONES_INICIALES: AjustesNotificaciones = {
   resumenManana: true,
   resumenMediodia: true,
   recordatorios: true,
+  pedidosEnvios: true,
 };
 
 export interface Aviso {
@@ -67,12 +71,31 @@ export function planificarAvisos(p: {
   franja: string;
   ajustes: AjustesNotificaciones;
   feriados?: readonly FechaISO[];
+  /** Pedidos y envíos del 771; vacío para quien no los tiene. */
+  programados?: readonly Programado[];
+  seguimientos?: readonly Seguimiento[];
 }): Aviso[] {
   const feriados = p.feriados ?? [];
   if (!esDiaLaborable(p.hoy, feriados)) return [];
 
   const vista = vistaHoy(p.tareas, p.cumplimientos, p.hoy, feriados);
   const avisos: Aviso[] = [];
+
+  // Pedidos y envíos que vencen hoy o que hoy toca preparar (fechaAviso = hoy), solo los pendientes.
+  const programadasHoy =
+    p.franja === HORA_RESUMEN_MANANA && p.ajustes.pedidosEnvios && p.programados
+      ? ocurrenciasProgramadas(p.programados, p.seguimientos ?? [], p.hoy, sumarDias(p.hoy, 21), feriados).filter(
+          (o) => o.estado === 'pendiente' && o.fechaAviso === p.hoy,
+        )
+      : [];
+  for (const o of programadasHoy) {
+    const cuando = o.fecha === p.hoy ? 'hoy' : `el ${DIAS_NOMBRE[diaSemana(o.fecha)]} ${Number(o.fecha.slice(8))}`;
+    avisos.push({
+      clave: `${p.hoy}_programado_${o.programadoId}_${o.fecha}`,
+      titulo: o.clase === 'envio' ? `Preparar envío · ${o.nombre.replace(/^Envío a /, '')}` : `Poner en trámite · ${o.nombre}`,
+      cuerpo: o.clase === 'envio' ? `Sale ${cuando}.` : `Toca ${cuando}.`,
+    });
+  }
 
   if (p.franja === HORA_RESUMEN_MANANA && p.ajustes.resumenManana) {
     const partes = [

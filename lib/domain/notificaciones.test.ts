@@ -6,6 +6,7 @@ import {
   franjaDe,
   planificarAvisos,
 } from './notificaciones';
+import { programadosSugeridos } from './pedidosEnvios';
 import type { Tarea } from './tareas';
 
 const t = (id: string, p: Partial<Tarea> = {}): Tarea => ({
@@ -66,7 +67,7 @@ describe('planificarAvisos', () => {
   });
   it('respeta lo que la persona silenció', () => {
     const tareas = [t('x', { hora: '07:00' })];
-    const silenciado = { resumenManana: false, resumenMediodia: false, recordatorios: false };
+    const silenciado = { resumenManana: false, resumenMediodia: false, recordatorios: false, pedidosEnvios: false };
     expect(planificarAvisos({ ...base, franja: '07:00', tareas, ajustes: silenciado })).toEqual([]);
   });
   it('ningún aviso fuera del calendario laboral', () => {
@@ -97,3 +98,45 @@ describe('expiraEnAviso', () => {
     expect(ahora.getTime()).toBe(copia);
   });
 });
+
+describe('avisos de pedidos y envíos', () => {
+  const programados = programadosSugeridos('2026-11-01');
+  const hoyJueves = { ...base, hoy: '2026-11-19', franja: '07:00', tareas: [], programados }; // jueves
+  it('el jueves avisa del envío a R del lunes (2 días hábiles antes)', () => {
+    const avisos = planificarAvisos(hoyJueves);
+    expect(avisos.map((a) => a.titulo)).toEqual(['Preparar envío · Rancho Redondo (R)']);
+    expect(avisos[0]?.cuerpo).toBe('Sale el lunes 23.');
+  });
+  it('el miércoles avisa del pedido de sueros del jueves (1 día hábil antes)', () => {
+    const avisos = planificarAvisos({ ...hoyJueves, hoy: '2026-11-18' });
+    expect(avisos.map((a) => a.titulo)).toEqual(['Poner en trámite · Pedido de sueros']);
+    expect(avisos[0]?.cuerpo).toBe('Toca el jueves 19.');
+  });
+  it('anticipación 0: avisa el mismo día', () => {
+    const p = [{ ...programados[5]!, anticipacion: 0 }]; // sueros, jueves
+    const avisos = planificarAvisos({ ...hoyJueves, programados: p });
+    expect(avisos.map((a) => a.cuerpo)).toEqual(['Toca hoy.']);
+  });
+  it('claves distintas por pedido y fecha (no se repiten)', () => {
+    const claves = planificarAvisos(hoyJueves).map((a) => a.clave);
+    expect(new Set(claves).size).toBe(claves.length);
+    expect(claves[0]).toMatch(/^2026-11-19_programado_/);
+  });
+  it('no avisa lo que ya se marcó', () => {
+    const seguimientos = [{ programadoId: 'sug-envio-r', fecha: '2026-11-23', estado: 'enviado' as const }];
+    expect(planificarAvisos({ ...hoyJueves, seguimientos })).toEqual([]);
+  });
+  it('solo a las 7:00', () => {
+    expect(planificarAvisos({ ...hoyJueves, franja: '12:00' })).toEqual([]);
+  });
+  it('respeta que la persona lo silencie', () => {
+    expect(planificarAvisos({ ...hoyJueves, ajustes: { ...TODO, pedidosEnvios: false } })).toEqual([]);
+  });
+  it('sin pedidos ni envíos (772) no hay avisos', () => {
+    expect(planificarAvisos({ ...hoyJueves, programados: [] })).toEqual([]);
+  });
+  it('no avisa en feriado', () => {
+    expect(planificarAvisos({ ...hoyJueves, feriados: ['2026-11-19'] })).toEqual([]);
+  });
+});
+

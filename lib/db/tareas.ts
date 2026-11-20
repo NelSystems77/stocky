@@ -18,7 +18,7 @@ import { registrarEscritura } from './sync';
 
 const Fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-const RecurrenciaSchema = z.discriminatedUnion('tipo', [
+export const RecurrenciaSchema = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('unica'), fecha: Fecha }),
   z.object({ tipo: z.literal('diaria') }),
   z.object({ tipo: z.literal('diasSemana'), dias: z.array(z.number().int().min(0).max(6)) }),

@@ -20,6 +20,7 @@ const TIPOS: { clave: keyof AjustesNotificaciones; titulo: string; detalle: stri
   { clave: 'resumenManana', titulo: 'Resumen de las 7:00 a. m.', detalle: 'Tareas de hoy y pendientes de días anteriores.' },
   { clave: 'resumenMediodia', titulo: 'Resumen de las 12:00 m. d.', detalle: 'Lo que falta por hacer hoy.' },
   { clave: 'recordatorios', titulo: 'Recordatorio a la hora de cada tarea', detalle: 'Solo para las tareas que tienen hora.' },
+  { clave: 'pedidosEnvios', titulo: 'Preparar envíos y pedidos', detalle: 'A las 7:00 a. m., según la anticipación de cada uno.' },
 ];
 
 const MENSAJES: Record<Exclude<ResultadoActivacion, 'ok'>, string> = {
