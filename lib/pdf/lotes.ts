@@ -68,8 +68,10 @@ export function fechaDeLote(texto: string): FechaISO | null {
 
 const numero = (t: string) => Number.parseFloat(t.replaceAll(',', ''));
 
-// El código sale en cuatro columnas numéricas: «1 10 16 10» = 110-16-0010 (los ceros a la izquierda no se imprimen).
-const CODIGO = String.raw`(\d)\s(\d{2})\s(\d{1,2})\s(\d{1,4})`;
+// El código puede venir de tres maneras y las tres son el mismo producto:
+//   «1-10-16-0010» (X-XX-XX-XXXX), «110-16-0010» (XXX-XX-XXXX) y, como en el reporte real de lotes, en cuatro columnas
+//   «1 10 16 10» (los ceros a la izquierda no se imprimen). Todas se unifican a XXX-XX-XXXX.
+const CODIGO = String.raw`(\d-\d{2}-\d{2}-\d{4}|\d{3}-\d{2}-\d{4}|\d\s\d{2}\s\d{1,2}\s\d{1,4})`;
 const FECHA = String.raw`(\d{1,2}-[A-Za-z]+-\d{4})`;
 // Existencia con 3 decimales y valor con 2; a veces el PDF los imprime pegados («384000.0001,442,995,200.00»).
 const CANTIDADES = String.raw`(\d+\.\d{3})\s?(-?[\d,]+\.\d{2})`;
@@ -91,8 +93,11 @@ const ENCABEZADOS = [
   /^Total general\b/i,
 ];
 
-function codigoDe(p0: string, p1: string, p2: string, p3: string): string | null {
-  return parsearCodigo(`${p0}-${p1}-${p2.padStart(2, '0')}-${p3.padStart(4, '0')}`);
+/** Código canónico `XXX-XX-XXXX` desde cualquiera de las tres formas en que SIFA lo imprime; `null` si no es válido. */
+export function codigoDeLote(crudo: string): string | null {
+  const partes = crudo.trim().split(/\s+/);
+  if (partes.length === 4) return parsearCodigo(`${partes[0]}-${partes[1]}-${partes[2]!.padStart(2, '0')}-${partes[3]!.padStart(4, '0')}`);
+  return parsearCodigo(crudo);
 }
 
 function leerFecha(lineas: readonly string[]): FechaISO | null {
@@ -142,11 +147,11 @@ export function parsearLotes(lineas: readonly string[]): ResultadoLotes {
   const advertencias: string[] = [];
   const noReconocidas: string[] = [];
 
-  const agregar = (cod: string[], ud: string, descripcion: string, lote: string, fecha: string, cant: string, valor: string, dudosa: boolean) => {
-    const codigo = codigoDe(cod[0]!, cod[1]!, cod[2]!, cod[3]!);
+  const agregar = (cod: string, ud: string, descripcion: string, lote: string, fecha: string, cant: string, valor: string, dudosa: boolean) => {
+    const codigo = codigoDeLote(cod);
     const vence = fechaDeLote(fecha);
     if (!codigo || !vence) {
-      noReconocidas.push(`${cod.join(' ')} ${lote} ${fecha}`);
+      noReconocidas.push(`${cod} ${lote} ${fecha}`);
       return;
     }
     filas.push({
@@ -166,13 +171,13 @@ export function parsearLotes(lineas: readonly string[]): ResultadoLotes {
     const linea = lineas[i]!;
     const completa = reFila.exec(linea);
     if (completa) {
-      agregar(completa.slice(1, 5), completa[5]!, completa[6]!, completa[7]!, completa[8]!, completa[9]!, completa[10]!, false);
+      agregar(completa[1]!, completa[2]!, completa[3]!, completa[4]!, completa[5]!, completa[6]!, completa[7]!, false);
       continue;
     }
     const fin = reFinPartida.exec(lineas[i + 1] ?? '');
     const inicio = fin ? reInicioPartida.exec(linea) : null;
     if (inicio && fin) {
-      agregar(fin.slice(1, 5), inicio[1]!, inicio[2]!, inicio[3]!, fin[5]!, fin[6]!, fin[7]!, true);
+      agregar(fin[1]!, inicio[1]!, inicio[2]!, inicio[3]!, fin[2]!, fin[3]!, fin[4]!, true);
       i++;
       continue;
     }

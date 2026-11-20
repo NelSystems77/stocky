@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esReporteLotes, fechaDeLote, parsearLotes } from './lotes';
+import { codigoDeLote, esReporteLotes, fechaDeLote, parsearLotes } from './lotes';
 import { ErrorReporte } from './tipos';
 
 // Líneas con el mismo formato que imprime SIFA (Rpt_VenceBodega), tal como las reconstruye `agruparLineas`.
@@ -39,6 +39,42 @@ describe('esReporteLotes', () => {
     expect(esReporteLotes(ENCABEZADO)).toBe(true);
     expect(esReporteLotes(['Reporte por Lotes Próximos a Vencer como límite al 20/11/2070'])).toBe(true);
     expect(esReporteLotes(['Rpt_ExistenciasDespacho'])).toBe(false);
+  });
+});
+
+describe('códigos en cualquiera de sus formas (XXX-XX-XXXX y X-XX-XX-XXXX)', () => {
+  it('las tres formas son el mismo código canónico', () => {
+    expect(codigoDeLote('110-16-0010')).toBe('110-16-0010');
+    expect(codigoDeLote('1-10-16-0010')).toBe('110-16-0010');
+    expect(codigoDeLote('1 10 16 10')).toBe('110-16-0010');
+    expect(codigoDeLote('2-27-02-0140')).toBe('227-02-0140');
+    expect(codigoDeLote('2 27 2 140')).toBe('227-02-0140');
+  });
+  it('rechaza lo que no es un código', () => {
+    expect(codigoDeLote('11-016-0010')).toBeNull();
+    expect(codigoDeLote('1 10 16')).toBeNull();
+  });
+  it('un reporte con códigos de forma mixta se lee igual y no duplica productos', () => {
+    const r = parsearLotes(
+      reporte(
+        [
+          '110-16-0010 CN PARACETAMOL 500 MG, T 250242 18-feb-2030 4256.800 2,077,658.94',
+          '1-10-16-0010 CN PARACETAMOL 500 MG, T 250243 18-mar-2030 100.000 1,000.00',
+          '1 10 16 10 CN PARACETAMOL 500 MG, T 250244 18-abr-2030 50.000 500.00',
+          '2-27-02-0140 UD PRESERVATIVO ( CONDON 2025082 19-ago-2030 1960.000 69,795.60',
+        ],
+        '2,148,954.54',
+      ),
+    );
+    expect(r.filas.map((f) => f.codigo)).toEqual(['110-16-0010', '110-16-0010', '110-16-0010', '227-02-0140']);
+    expect(r.cuadra).toBe(true);
+    expect(r.advertencias).toEqual([]);
+  });
+  it('la forma de cuatro columnas también funciona con la descripción partida', () => {
+    const r = parsearLotes(reporte(['CN MOFETILO 250 MG (COMO FD25237', '1-10-04-0045 30-mar-2027 14.400 195,391.58'], '195,391.58'));
+    expect(r.filas[0]).toMatchObject({ codigo: '110-04-0045', lote: 'FD25237', dudosa: true });
+    const r2 = parsearLotes(reporte(['CN MOFETILO 250 MG (COMO FD25237', '110-04-0045 30-mar-2027 14.400 195,391.58'], '195,391.58'));
+    expect(r2.filas[0]?.codigo).toBe('110-04-0045');
   });
 });
 
