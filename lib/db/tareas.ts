@@ -25,6 +25,8 @@ export const RecurrenciaSchema = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('quincenal'), dia: z.number().int().min(0).max(6), ancla: Fecha }),
   z.object({ tipo: z.literal('mensual'), diaMes: z.number().int().min(1).max(31) }),
   z.object({ tipo: z.literal('segundoSabado') }),
+  z.object({ tipo: z.literal('tercerJueves') }),
+  z.object({ tipo: z.literal('tercerJuevesMas15') }),
 ]);
 
 export const TareaSchema = z.object({

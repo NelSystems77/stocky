@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { siguienteDiaLaborable } from './calendario';
 import { ocurrencias, vistaHoy, type Cumplimiento, type Tarea } from './tareas';
-import { tareasSugeridas } from './tareasSugeridas';
+import { migrarTareasSugeridas, tareasSugeridas } from './tareasSugeridas';
 
 const tarea = (p: Partial<Tarea> & Pick<Tarea, 'id'>): Tarea => ({
   titulo: p.id,
@@ -107,8 +107,48 @@ describe('tareasSugeridas', () => {
   it('el 771 recibe las del PRD con IDs fijos; el 772 ninguna', () => {
     const t = tareasSugeridas('771', '2026-11-12');
     expect(t.map((x) => x.id)).toContain('sug-cargar-reportes');
-    expect(t.find((x) => x.id === 'sug-cargar-reportes')).toMatchObject({ hora: '07:00', recurrencia: { dias: [4] } });
+    expect(t.find((x) => x.id === 'sug-cargar-reportes')).toMatchObject({ hora: '07:00', recurrencia: { tipo: 'tercerJueves' } });
+    expect(t.find((x) => x.id === 'sug-cargar-existencias-15')).toMatchObject({ hora: '07:00', recurrencia: { tipo: 'tercerJuevesMas15' } });
     expect(new Set(t.map((x) => x.id)).size).toBe(t.length);
     expect(tareasSugeridas('772', '2026-11-12')).toEqual([]);
   });
 });
+
+describe('migrarTareasSugeridas', () => {
+  const semanal: Tarea = {
+    id: 'sug-cargar-reportes',
+    titulo: 'Cargar reportes (lotes, vencimientos y consumos)',
+    recurrencia: { tipo: 'diasSemana', dias: [4] },
+    hora: '07:00',
+    prioridad: 'media',
+    notas: '',
+    activa: true,
+    desde: '2026-11-01',
+  };
+  it('la semanal sin tocar pasa al tercer jueves, conserva su fecha de inicio y suma la de +15 días', () => {
+    const r = migrarTareasSugeridas([semanal], '771', '2026-11-20');
+    expect(r.map((t) => [t.id, t.recurrencia.tipo])).toEqual([
+      ['sug-cargar-reportes', 'tercerJueves'],
+      ['sug-cargar-existencias-15', 'tercerJuevesMas15'],
+    ]);
+    expect(r[0]?.desde).toBe('2026-11-01');
+  });
+  it('conserva la pausa', () => {
+    expect(migrarTareasSugeridas([{ ...semanal, activa: false }], '771', '2026-11-20').every((t) => !t.activa)).toBe(true);
+  });
+  it('si la persona la editó, no se toca nada', () => {
+    expect(migrarTareasSugeridas([{ ...semanal, hora: '08:30' }], '771', '2026-11-20')).toEqual([]);
+    expect(migrarTareasSugeridas([{ ...semanal, titulo: 'Mi carga' }], '771', '2026-11-20')).toEqual([]);
+  });
+  it('ya migrada (o sin la tarea) no hace nada; el 772 tampoco', () => {
+    const nuevas = tareasSugeridas('771', '2026-11-20');
+    expect(migrarTareasSugeridas(nuevas, '771', '2026-11-20')).toEqual([]);
+    expect(migrarTareasSugeridas([], '771', '2026-11-20')).toEqual([]);
+    expect(migrarTareasSugeridas([semanal], '772', '2026-11-20')).toEqual([]);
+  });
+  it('no duplica la de +15 días si ya existe', () => {
+    const quince = tareasSugeridas('771', '2026-11-20').find((t) => t.id === 'sug-cargar-existencias-15')!;
+    expect(migrarTareasSugeridas([semanal, quince], '771', '2026-11-20').map((t) => t.id)).toEqual(['sug-cargar-reportes']);
+  });
+});
+

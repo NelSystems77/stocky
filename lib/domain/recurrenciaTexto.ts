@@ -21,5 +21,9 @@ export function describirRecurrencia(r: Recurrencia): string {
       return `Cada mes, el día ${r.diaMes}`;
     case 'segundoSabado':
       return 'Cada segundo sábado';
+    case 'tercerJueves':
+      return 'Cada tercer jueves del mes';
+    case 'tercerJuevesMas15':
+      return '15 días después del tercer jueves';
   }
 }

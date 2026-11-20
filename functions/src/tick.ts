@@ -22,6 +22,8 @@ export const TareaSchema = z.object({
     z.object({ tipo: z.literal('quincenal'), dia: z.number().int().min(0).max(6), ancla: Fecha }),
     z.object({ tipo: z.literal('mensual'), diaMes: z.number().int().min(1).max(31) }),
     z.object({ tipo: z.literal('segundoSabado') }),
+    z.object({ tipo: z.literal('tercerJueves') }),
+    z.object({ tipo: z.literal('tercerJuevesMas15') }),
   ]),
   hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable(),
   prioridad: z.enum(['alta', 'media', 'baja']),
@@ -44,6 +46,8 @@ const ProgramacionSchema = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('quincenal'), dia: z.number().int().min(0).max(6), ancla: Fecha }),
   z.object({ tipo: z.literal('mensual'), diaMes: z.number().int().min(1).max(31) }),
   z.object({ tipo: z.literal('segundoSabado') }),
+  z.object({ tipo: z.literal('tercerJueves') }),
+  z.object({ tipo: z.literal('tercerJuevesMas15') }),
   z.object({ tipo: z.literal('ultimoDiaSemana'), dia: z.number().int().min(0).max(6) }),
 ]);
 /** Pedido o envío programado; la clase la da la colección (`tiposPedido` = pedido, `puestos` = envío). */

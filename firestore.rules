@@ -135,7 +135,7 @@ service cloud.firestore {
           && request.resource.data.prioridad in ['alta', 'media', 'baja']
           && request.resource.data.activa is bool
           && request.resource.data.recurrencia is map
-          && request.resource.data.recurrencia.tipo in ['unica', 'diaria', 'diasSemana', 'quincenal', 'mensual', 'segundoSabado']
+          && request.resource.data.recurrencia.tipo in ['unica', 'diaria', 'diasSemana', 'quincenal', 'mensual', 'segundoSabado', 'tercerJueves', 'tercerJuevesMas15']
           && request.resource.data.desde.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       }
       // Una fila por ocurrencia atendida: id = `${tareaId}_${fechaOrigen}`.

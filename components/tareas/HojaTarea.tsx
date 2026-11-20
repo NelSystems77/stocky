@@ -16,6 +16,8 @@ const FRECUENCIAS = [
   ['quincenal', 'Cada 2 semanas'],
   ['mensual', 'Una vez al mes'],
   ['segundoSabado', 'Cada segundo sábado'],
+  ['tercerJueves', 'Cada tercer jueves del mes'],
+  ['tercerJuevesMas15', '15 días después del tercer jueves'],
 ] as const;
 
 const DIAS_LABORALES = [
@@ -29,7 +31,7 @@ const DIAS_LABORALES = [
 const Esquema = z
   .object({
     titulo: z.string().trim().min(1, 'Escribe un título.').max(200, 'Máximo 200 caracteres.'),
-    frecuencia: z.enum(['unica', 'diaria', 'diasSemana', 'quincenal', 'mensual', 'segundoSabado']),
+    frecuencia: z.enum(['unica', 'diaria', 'diasSemana', 'quincenal', 'mensual', 'segundoSabado', 'tercerJueves', 'tercerJuevesMas15']),
     fecha: z.string(),
     dias: z.array(z.number()),
     diaMes: z.number().int().min(1).max(31),
@@ -61,6 +63,10 @@ function aRecurrencia(d: Datos): Recurrencia {
       return { tipo: 'mensual', diaMes: d.diaMes };
     case 'segundoSabado':
       return { tipo: 'segundoSabado' };
+    case 'tercerJueves':
+      return { tipo: 'tercerJueves' };
+    case 'tercerJuevesMas15':
+      return { tipo: 'tercerJuevesMas15' };
   }
 }
 

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { FilaLote } from '@/lib/pdf/lotes';
 import {
   compararLotes,
+  detalleDeCambios,
+  idVencidoDeLote,
   cuadrarConExistencias,
   esMedicamento,
   hayCambios,
@@ -232,3 +234,72 @@ describe('planGuardadoLotes', () => {
     expect(salidas[0]?.datos.salioEn).toBe('2026-11-20');
   });
 });
+
+describe('vencidos automáticos (RF-2.5) en planGuardadoLotes', () => {
+  const FECHA = '2026-11-20';
+  it('un lote cuya fecha ya llegó y tiene existencia queda vencido y se registra', () => {
+    const { lotes, vencidos } = planGuardadoLotes([lote({ vence: '2026-11-01', cantidad: 300 })], [], FECHA);
+    expect(lotes[0]?.datos.estado).toBe('vencido');
+    expect(vencidos).toEqual([
+      {
+        id: idVencidoDeLote(lotes[0]!.id),
+        datos: { fecha: FECHA, codigo: '110-16-0010', lote: 'A1', fechaVencimiento: '2026-11-01', cantidad: 300, origen: 'reporte', notas: 'Detectado en el reporte de lotes y vencimientos.' },
+      },
+    ]);
+  });
+  it('el que vence hoy también cuenta; el de mañana no', () => {
+    expect(planGuardadoLotes([lote({ vence: FECHA })], [], FECHA).vencidos).toHaveLength(1);
+    expect(planGuardadoLotes([lote({ vence: '2026-11-21' })], [], FECHA).vencidos).toHaveLength(0);
+  });
+  it('no lo vuelve a registrar en la carga siguiente (el registro puede haberse editado)', () => {
+    const previo = guardado({ vence: '2026-11-01', estado: 'vencido', cantidad: 300 });
+    const { lotes, vencidos } = planGuardadoLotes([lote({ vence: '2026-11-01', cantidad: 250 })], [previo], '2026-12-18');
+    expect(lotes[0]?.datos.estado).toBe('vencido');
+    expect(vencidos).toEqual([]);
+  });
+  it('un lote gestionado no se registra como vencido', () => {
+    const previo = guardado({ vence: '2026-11-01', estado: 'gestionado' });
+    const r = planGuardadoLotes([lote({ vence: '2026-11-01' })], [previo], FECHA);
+    expect(r.lotes[0]?.datos.estado).toBe('gestionado');
+    expect(r.vencidos).toEqual([]);
+  });
+  it('un lote activo que venció entre cargas se registra en la carga donde se ve vencido', () => {
+    const previo = guardado({ vence: '2026-11-15', estado: 'activo' });
+    expect(planGuardadoLotes([lote({ vence: '2026-11-15' })], [previo], FECHA).vencidos).toHaveLength(1);
+  });
+  it('un lote vencido que ya no aparece queda agotado', () => {
+    const previo = guardado({ vence: '2026-11-01', estado: 'vencido' });
+    expect(planGuardadoLotes([], [previo], FECHA).salidas[0]?.datos.estado).toBe('agotado');
+  });
+  it('el ID del registro es fijo por lote', () => {
+    expect(idVencidoDeLote('110-16-0010_A1_2026-11-01')).toBe('lote-110-16-0010_A1_2026-11-01');
+  });
+});
+
+describe('detalleDeCambios', () => {
+  const c = compararLotes(
+    [guardado({ lote: 'BAJA', cantidad: 100 }), guardado({ lote: 'SUBE', cantidad: 100 }), guardado({ lote: 'FECHA', vence: '2028-01-01' }), guardado({ lote: 'SALE' })],
+    [lote({ lote: 'BAJA', cantidad: 80 }), lote({ lote: 'SUBE', cantidad: 130 }), lote({ lote: 'FECHA', vence: '2027-01-01' }), lote({ lote: 'NUEVO', cantidad: 50 })],
+  );
+  it('una fila por cambio, con los críticos primero', () => {
+    const d = detalleDeCambios(c, true);
+    expect(d.map((x) => [x.tipo, x.lote])).toEqual([
+      ['vencimiento', 'FECHA'],
+      ['subio', 'SUBE'],
+      ['bajo', 'BAJA'],
+      ['nuevo', 'NUEVO'],
+      ['salio', 'SALE'],
+    ]);
+  });
+  it('lleva las cantidades y fechas antes y después', () => {
+    const d = detalleDeCambios(c, true);
+    expect(d[0]).toMatchObject({ tipo: 'vencimiento', venceAntes: '2028-01-01', vence: '2027-01-01', antes: 1000, despues: 1000 });
+    expect(d.find((x) => x.tipo === 'subio')).toMatchObject({ antes: 100, despues: 130 });
+    expect(d.find((x) => x.tipo === 'nuevo')).toMatchObject({ despues: 50 });
+    expect(d.find((x) => x.tipo === 'salio')).toMatchObject({ antes: 1000 });
+  });
+  it('la primera carga no se detalla (todo sería nuevo)', () => {
+    expect(detalleDeCambios(compararLotes([], [lote()]), false)).toEqual([]);
+  });
+});
+

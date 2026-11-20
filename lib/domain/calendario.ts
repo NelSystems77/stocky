@@ -38,6 +38,16 @@ export function segundoSabado(anio: number, mes: number): FechaISO {
   return deUTC(Date.UTC(anio, mes - 1, primerSabado + 7));
 }
 
+/** `n`-ésimo (1 a 5) día de la semana `dia` (0 = domingo … 6 = sábado) del mes `mes` (1 a 12). */
+export function nEsimoDiaSemana(anio: number, mes: number, dia: number, n: number): FechaISO {
+  const primero = new Date(Date.UTC(anio, mes - 1, 1)).getUTCDay();
+  const primerDia = 1 + ((dia - primero + 7) % 7);
+  return deUTC(Date.UTC(anio, mes - 1, primerDia + 7 * (n - 1)));
+}
+
+/** Tercer jueves del mes (`mes` de 1 a 12): día en que se carga el reporte de lotes y vencimientos. */
+export const tercerJueves = (anio: number, mes: number): FechaISO => nEsimoDiaSemana(anio, mes, 4, 3);
+
 export function esSegundoSabado(fecha: FechaISO): boolean {
   const [y, m] = fecha.split('-').map(Number) as [number, number];
   return fecha === segundoSabado(y, m);
@@ -49,6 +59,13 @@ export function esDiaLaborable(fecha: FechaISO, feriados: readonly FechaISO[] = 
   const d = diaSemana(fecha);
   if (d >= 1 && d <= 5) return true;
   return d === 6 && esSegundoSabado(fecha);
+}
+
+/** La misma fecha si es laborable; si no, el siguiente día laborable. */
+export function laborableDesde(fecha: FechaISO, feriados: readonly FechaISO[] = []): FechaISO {
+  let f = fecha;
+  for (let i = 0; i < 14 && !esDiaLaborable(f, feriados); i++) f = sumarDias(f, 1);
+  return f;
 }
 
 /** Próximo ingreso: segundo sábado del mes actual si no ha pasado; si no, el del mes siguiente. */

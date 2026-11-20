@@ -27,6 +27,8 @@ export interface LoteGuardado extends Lote {
   fechaIngreso: FechaISO;
   /** Fecha del último reporte donde apareció. */
   ultimaVez: FechaISO;
+  /** Cuando se gestionó (RF-2.4): trasladado, consumido o dado de baja en SIFA. */
+  gestion?: { motivo: string; fecha: FechaISO };
 }
 
 /** ID estable del lote: un mismo número de lote puede venir con dos vencimientos (se guardan como lotes distintos). */
@@ -309,15 +311,33 @@ export interface EscrituraSalida {
   datos: { cantidad: number; estado: EstadoLote; salioEn: FechaISO };
 }
 
+/** Registro automático de vencido (RF-2.5): lote cuya fecha ya llegó y todavía figura con existencia. */
+export interface EscrituraVencido {
+  id: string;
+  datos: { fecha: FechaISO; codigo: string; lote: string; fechaVencimiento: FechaISO; cantidad: number; origen: 'reporte'; notas: string };
+}
+
+export const NOTA_VENCIDO_AUTOMATICO = 'Detectado en el reporte de lotes y vencimientos.';
+
+/** ID del registro de vencido de un lote: fijo, para que cargar otro reporte no lo duplique. */
+export const idVencidoDeLote = (idDelLote: string): string => `lote-${idDelLote}`.slice(0, 200);
+
 /**
  * Qué se escribe al guardar una carga:
  * - cada lote del reporte queda con su cantidad real y `ultimaVez`; si ya existía, conserva su ingreso original y
  *   suma lo que subió (RF-1.9); un lote `gestionado` sigue gestionado, y uno `agotado` que reaparece vuelve a `activo`;
+ * - un lote cuya fecha ya llegó (o es de hoy) y tiene existencia queda `vencido` y, la primera vez que se detecta,
+ *   se registra en Vencidos (RF-2.5, origen `reporte`); un gestionado no se registra;
  * - cada lote con existencia que ya no aparece queda en cantidad 0 y `agotado` (el historial no se borra).
  */
-export function planGuardadoLotes(nuevos: readonly Lote[], anteriores: readonly LoteGuardado[], fecha: FechaISO): { lotes: EscrituraLote[]; salidas: EscrituraSalida[] } {
+export function planGuardadoLotes(
+  nuevos: readonly Lote[],
+  anteriores: readonly LoteGuardado[],
+  fecha: FechaISO,
+): { lotes: EscrituraLote[]; salidas: EscrituraSalida[]; vencidos: EscrituraVencido[] } {
   const previosPorId = new Map(anteriores.map((l) => [l.id, l]));
   const presentes = new Set<string>();
+  const vencidos: EscrituraVencido[] = [];
 
   const lotes = nuevos.map((n): EscrituraLote => {
     const id = idLote(n.codigo, n.lote, n.vence);
@@ -325,6 +345,14 @@ export function planGuardadoLotes(nuevos: readonly Lote[], anteriores: readonly 
     const p = previosPorId.get(id);
     const subio = p && p.estado !== 'agotado' ? Math.max(0, n.cantidad - p.cantidad) : 0;
     const reaparece = p?.estado === 'agotado';
+    const gestionado = p && !reaparece && p.estado === 'gestionado';
+    const estado: EstadoLote = gestionado ? 'gestionado' : n.cantidad > 0 && n.vence <= fecha ? 'vencido' : 'activo';
+    if (estado === 'vencido' && p?.estado !== 'vencido') {
+      vencidos.push({
+        id: idVencidoDeLote(id),
+        datos: { fecha, codigo: n.codigo, lote: n.lote, fechaVencimiento: n.vence, cantidad: n.cantidad, origen: 'reporte', notas: NOTA_VENCIDO_AUTOMATICO },
+      });
+    }
     return {
       id,
       datos: {
@@ -335,7 +363,7 @@ export function planGuardadoLotes(nuevos: readonly Lote[], anteriores: readonly 
         vence: n.vence,
         cantidad: n.cantidad,
         valor: n.valor,
-        estado: p && !reaparece && p.estado === 'gestionado' ? 'gestionado' : 'activo',
+        estado,
         cantidadIngresada: !p ? n.cantidad : reaparece ? Math.round((p.cantidadIngresada + n.cantidad) * 1e6) / 1e6 : Math.round((p.cantidadIngresada + subio) * 1e6) / 1e6,
         fechaIngreso: p?.fechaIngreso ?? fecha,
         ultimaVez: fecha,
@@ -348,5 +376,37 @@ export function planGuardadoLotes(nuevos: readonly Lote[], anteriores: readonly 
     .filter((p) => !presentes.has(p.id) && p.estado !== 'agotado' && p.cantidad > 0)
     .map((p): EscrituraSalida => ({ id: p.id, datos: { cantidad: 0, estado: p.estado === 'gestionado' ? 'gestionado' : 'agotado', salioEn: fecha } }));
 
-  return { lotes, salidas };
+  return { lotes, salidas, vencidos };
+}
+
+export type TipoDetalleCambio = 'nuevo' | 'salio' | 'bajo' | 'subio' | 'vencimiento';
+
+/** Un cambio de la carga, tal como se guarda para poder revisarlo después (cantidades en unidades base). */
+export interface DetalleCambio {
+  tipo: TipoDetalleCambio;
+  codigo: string;
+  descripcion: string;
+  ud: string;
+  lote: string;
+  /** Vencimiento (el nuevo, en `vencimiento`). */
+  vence: FechaISO;
+  venceAntes?: FechaISO;
+  antes?: number;
+  despues?: number;
+}
+
+/**
+ * Aplana los cambios revisados en una lista para guardar el detalle de la carga. En la primera carga (sin anterior)
+ * no se detalla: todo sería «nuevo» y la importación ya guarda el conteo.
+ */
+export function detalleDeCambios(c: CambiosLotes, hayAnterior: boolean): DetalleCambio[] {
+  if (!hayAnterior) return [];
+  const base = (l: { codigo: string; descripcion: string; ud: string; lote: string }) => ({ codigo: l.codigo, descripcion: l.descripcion, ud: l.ud, lote: l.lote });
+  return [
+    ...c.vencimiento.map((v): DetalleCambio => ({ tipo: 'vencimiento', ...base(v), vence: v.venceDespues, venceAntes: v.venceAntes, antes: v.cantidadAntes, despues: v.cantidadDespues })),
+    ...c.subieron.map((x): DetalleCambio => ({ tipo: 'subio', ...base(x.lote), vence: x.lote.vence, antes: x.antes, despues: x.despues })),
+    ...c.bajaron.map((x): DetalleCambio => ({ tipo: 'bajo', ...base(x.lote), vence: x.lote.vence, antes: x.antes, despues: x.despues })),
+    ...c.nuevos.map((l): DetalleCambio => ({ tipo: 'nuevo', ...base(l), vence: l.vence, despues: l.cantidad })),
+    ...c.salieron.map((l): DetalleCambio => ({ tipo: 'salio', ...base(l), vence: l.vence, antes: l.cantidad })),
+  ];
 }
