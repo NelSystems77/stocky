@@ -90,8 +90,37 @@ describe('ocurrencias', () => {
   it('no genera antes de `desde`', () => {
     expect(ocurrenciasProgramadas([{ ...porId('sug-envio-c'), desde: '2026-11-25' }], [], '2026-11-01', '2026-11-30').map((o) => o.fecha)).toEqual([]);
   });
-  it('un feriado omite esa fecha', () => {
+  it('un feriado traslada la fecha al día hábil anterior', () => {
+    // C es los martes: el martes 24 es feriado → sale el lunes 23.
+    const o = ocurrenciasProgramadas([porId('sug-envio-c')], [], '2026-11-23', '2026-11-30', ['2026-11-24']);
+    expect(o.map((x) => x.fecha)).toEqual(['2026-11-23']);
+  });
+  it('el traslado también aplica cuando la fecha nominal queda fuera del rango', () => {
+    // El martes 24 (feriado) sale el lunes 23, aunque se pida el rango 23–23.
+    expect(ocurrenciasProgramadas([porId('sug-envio-c')], [], '2026-11-23', '2026-11-23', ['2026-11-24'])).toHaveLength(1);
+    // Y ya no aparece en su día nominal.
     expect(ocurrenciasProgramadas([porId('sug-envio-c')], [], '2026-11-24', '2026-11-24', ['2026-11-24'])).toEqual([]);
+  });
+  it('un lunes feriado se traslada al viernes anterior, saltando el fin de semana', () => {
+    const r = ocurrenciasProgramadas([porId('sug-envio-r')], [], '2026-11-20', '2026-11-22', ['2026-11-23']);
+    expect(r.map((x) => x.fecha)).toEqual(['2026-11-20']);
+  });
+  it('un feriado en el último jueves traslada el envío a R al miércoles', () => {
+    const r = ocurrenciasProgramadas([porId('sug-envio-r')], [], '2026-11-25', '2026-11-26', ['2026-11-26']);
+    expect(r.map((x) => x.fecha)).toEqual(['2026-11-25']);
+  });
+  it('si el día anterior también es feriado, retrocede hasta un día hábil', () => {
+    const r = ocurrenciasProgramadas([porId('sug-envio-c')], [], '2026-11-20', '2026-11-24', ['2026-11-24', '2026-11-23']);
+    expect(r.map((x) => x.fecha)).toEqual(['2026-11-20']);
+  });
+  it('si dos fechas caen el mismo día cuenta una sola vez', () => {
+    // Jueves 26 es feriado → R (último jueves) sale el miércoles 25; el pedido de otro programado no se mezcla.
+    const p: Programado = { ...porId('sug-envio-r'), recurrencias: [{ tipo: 'diasSemana', dias: [3] }, { tipo: 'ultimoDiaSemana', dia: 4 }] };
+    expect(ocurrenciasProgramadas([p], [], '2026-11-25', '2026-11-25', ['2026-11-26'])).toHaveLength(1);
+  });
+  it('el seguimiento se busca por la fecha efectiva', () => {
+    const seg: Seguimiento[] = [{ programadoId: 'sug-envio-c', fecha: '2026-11-23', estado: 'enviado' }];
+    expect(ocurrenciasProgramadas([porId('sug-envio-c')], seg, '2026-11-23', '2026-11-23', ['2026-11-24'])[0]?.estado).toBe('enviado');
   });
   it('dos recurrencias que coinciden cuentan una vez', () => {
     const p: Programado = { ...porId('sug-envio-r'), recurrencias: [{ tipo: 'diasSemana', dias: [4] }, { tipo: 'ultimoDiaSemana', dia: 4 }] };

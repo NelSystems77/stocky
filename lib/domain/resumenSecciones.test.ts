@@ -21,6 +21,11 @@ describe('seccionesDisponibles', () => {
   it('el 772 sin módulos habilitados solo ve tareas, vencidos y agotados', () => {
     expect(seccionesDisponibles([])).toEqual(['tareas', 'vencidos', 'agotados']);
   });
+  it('envíos y pedidos solo con sus módulos', () => {
+    expect(seccionesDisponibles([])).not.toContain('envios');
+    expect(seccionesDisponibles(['envios'])).toEqual(['tareas', 'vencidos', 'agotados', 'envios']);
+    expect(seccionesDisponibles(['pedidos', 'envios'])).toEqual(['tareas', 'vencidos', 'agotados', 'envios', 'pedidos']);
+  });
   it('un módulo habilitado agrega su sección', () => {
     expect(seccionesDisponibles(['danados', 'preconteo'])).toEqual(['tareas', 'preconteo', 'danados', 'vencidos', 'agotados']);
   });

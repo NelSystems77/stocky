@@ -138,5 +138,13 @@ describe('avisos de pedidos y envíos', () => {
   it('no avisa en feriado', () => {
     expect(planificarAvisos({ ...hoyJueves, feriados: ['2026-11-19'] })).toEqual([]);
   });
+  it('si el envío se traslada por un feriado, avisa para la fecha trasladada', () => {
+    // El lunes 23 es feriado: R sale el viernes 20 y se avisa 2 días hábiles antes (miércoles 18).
+    const avisos = planificarAvisos({ ...hoyJueves, hoy: '2026-11-18', feriados: ['2026-11-23'] });
+    expect(avisos.map((a) => a.cuerpo)).toContain('Sale el viernes 20.');
+    // El jueves 19 ya no toca avisar de R (el lunes 23 es feriado); sí del envío a C, cuyo martes 24 cuenta un día hábil menos.
+    const jueves = planificarAvisos({ ...hoyJueves, feriados: ['2026-11-23'] }).map((x) => x.titulo);
+    expect(jueves).toEqual(['Preparar envío · Cascajal (C)']);
+  });
 });
 

@@ -68,7 +68,7 @@ function ultimoDiaSemanaDelMes(fecha: FechaISO, dia: DiaSemana): FechaISO {
   return f;
 }
 
-/** ¿Ocurre esta programación en la fecha? Nada ocurre en días no laborables (feriados incluidos). */
+/** ¿Coincide esta programación con la fecha? Con `feriados` vacío es la fecha «nominal»; ver `ocurrenciasProgramadas` para el traslado. */
 export function ocurreProgramacion(p: Programacion, fecha: FechaISO, feriados: readonly FechaISO[] = []): boolean {
   if (p.tipo === 'ultimoDiaSemana') {
     return esDiaLaborable(fecha, feriados) && diaSemana(fecha) === p.dia && ultimoDiaSemanaDelMes(fecha, p.dia) === fecha;
@@ -87,8 +87,13 @@ export function restarDiasHabiles(fecha: FechaISO, n: number, feriados: readonly
   return f;
 }
 
+/** Cuántos días más allá de `hasta` se revisan por si un feriado traslada una fecha hacia atrás hasta el rango. */
+const HOLGURA_TRASLADO = 14;
+
 /**
  * Ocurrencias de pedidos y envíos con fecha en [desde, hasta], con su estado.
+ * Si la fecha que toca cae en feriado (o en un día no laborable), se **traslada al día hábil anterior**
+ * (decidido el 2026-11-20); si dos fechas caen el mismo día, cuenta una sola vez.
  * Orden: fecha, envíos antes que pedidos, nombre.
  */
 export function ocurrenciasProgramadas(
@@ -103,9 +108,14 @@ export function ocurrenciasProgramadas(
 
   for (const p of programados) {
     if (!p.activo) continue;
-    const inicio = p.desde > desde ? p.desde : desde;
-    for (let f = inicio; f <= hasta; f = sumarDias(f, 1)) {
-      if (!p.recurrencias.some((r) => ocurreProgramacion(r, f, feriados))) continue;
+    const fechas = new Set<FechaISO>();
+    for (let f = desde; f <= sumarDias(hasta, HOLGURA_TRASLADO); f = sumarDias(f, 1)) {
+      // Sin feriados: la fecha «nominal». Si no es laborable, se corre al día hábil anterior.
+      if (!p.recurrencias.some((r) => ocurreProgramacion(r, f))) continue;
+      const efectiva = esDiaLaborable(f, feriados) ? f : restarDiasHabiles(f, 1, feriados);
+      if (efectiva >= desde && efectiva <= hasta && efectiva >= p.desde) fechas.add(efectiva);
+    }
+    for (const f of fechas) {
       lista.push({
         programadoId: p.id,
         clase: p.clase,

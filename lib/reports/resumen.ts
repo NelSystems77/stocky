@@ -3,6 +3,7 @@ import { es } from 'date-fns/locale';
 import { diasAgotado, separarRegistros, type RegistroAgotado } from '@/lib/domain/agotados';
 import { danadosDelMes, ETIQUETA_MOTIVO, MOTIVOS_DANADO, ordenarDanados, totalesDanados, type RegistroDanado } from '@/lib/domain/danados';
 import { formatearEnUD, formatearNumero } from '@/lib/domain/formato';
+import { ETIQUETA_ESTADO, estaCerrada, ocurrenciasProgramadas, type Programado, type Seguimiento } from '@/lib/domain/pedidosEnvios';
 import { seSolapa } from '@/lib/domain/periodos';
 import { ordenarPreconteos, preconteosDelMes, totalesPreconteo, type RegistroPreconteo } from '@/lib/domain/preconteo';
 import { ETIQUETA_SECCION, SECCIONES_RESUMEN, type SeccionResumen } from '@/lib/domain/resumenSecciones';
@@ -33,6 +34,11 @@ export interface DatosMes {
   danados: readonly RegistroDanado[];
   vencidos: readonly RegistroVencido[];
   agotados: readonly RegistroAgotado[];
+  /** Envíos a puestos (colección `puestos`), pedidos (`tiposPedido`) y lo hecho con cada ocurrencia. */
+  envios: readonly Programado[];
+  pedidos: readonly Programado[];
+  seguimientos: readonly Seguimiento[];
+  feriados: readonly FechaISO[];
   descripciones: ReadonlyMap<string, string>;
   /** UD por código; sin ella la cantidad se muestra en unidades. */
   uds: ReadonlyMap<string, string>;
@@ -167,6 +173,39 @@ function seccionAgotados(d: DatosMes): SeccionReporte {
   };
 }
 
+function seccionEnvios(d: DatosMes): SeccionReporte {
+  const { desde } = inicioFinMes(d.mes);
+  const delMes = ocurrenciasProgramadas(d.envios, d.seguimientos, desde, d.hasta, d.feriados);
+  const enviados = delMes.filter(estaCerrada).length;
+  return {
+    titulo: ETIQUETA_SECCION.envios,
+    columnas: ['Puesto', 'Fecha', 'Estado'],
+    filas: delMes.map((o) => [o.nombre, fechaCorta(o.fecha), estaCerrada(o) ? 'Enviado' : 'Sin enviar']),
+    columnasNumericas: [],
+    resumen: delMes.length === 0 ? [] : [`Envíos: ${delMes.length} · enviados ${enviados} · sin enviar ${delMes.length - enviados}`],
+  };
+}
+
+function seccionPedidos(d: DatosMes): SeccionReporte {
+  const { desde } = inicioFinMes(d.mes);
+  const delMes = ocurrenciasProgramadas(d.pedidos, d.seguimientos, desde, d.hasta, d.feriados);
+  const etiqueta = (e: (typeof delMes)[number]['estado']) => (e === 'pendiente' ? 'Sin tramitar' : ETIQUETA_ESTADO[e]);
+  const sinTramitar = delMes.filter((o) => o.estado === 'pendiente').length;
+  const enTramite = delMes.filter((o) => o.estado === 'en_tramite').length;
+  return {
+    titulo: ETIQUETA_SECCION.pedidos,
+    columnas: ['Pedido', 'Fecha', 'Estado'],
+    filas: delMes.map((o) => [o.nombre, fechaCorta(o.fecha), etiqueta(o.estado)]),
+    columnasNumericas: [],
+    resumen:
+      delMes.length === 0
+        ? []
+        : [
+            `Pedidos: ${delMes.length} · tramitados ${delMes.length - sinTramitar} (en trámite ${enTramite}, enviados ${delMes.length - sinTramitar - enTramite}) · sin tramitar ${sinTramitar}`,
+          ],
+  };
+}
+
 const CONSTRUCTORES: Record<SeccionResumen, (d: DatosMes) => SeccionReporte> = {
   tareas: seccionTareas,
   preconteo: seccionPreconteo,
@@ -174,6 +213,8 @@ const CONSTRUCTORES: Record<SeccionResumen, (d: DatosMes) => SeccionReporte> = {
   danados: seccionDanados,
   vencidos: seccionVencidos,
   agotados: seccionAgotados,
+  envios: seccionEnvios,
+  pedidos: seccionPedidos,
 };
 
 /**
