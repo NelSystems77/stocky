@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { idLote, type LoteGuardado } from './lotes';
-import { analizarVencimientos, contarUrgentes, proyectarLotes, resumirVencimientos, simularFEFO, type ExistenciaReal, type LoteVista } from './vencimientos';
+import {
+  analizarVencimientos,
+  contarUrgentes,
+  evaluarVencimientos,
+  ingresosSinSumar,
+  normalizarUmbralesVencimiento,
+  proyectarLotes,
+  resumirVencimientos,
+  simularFEFO,
+  UMBRALES_VENCIMIENTO_INICIALES,
+  validarUmbralesVencimiento,
+  type ExistenciaReal,
+  type LoteVista,
+} from './vencimientos';
 
 // Hoy = viernes 20-nov-2026. Días hábiles siguientes: lun 23 (1), mar 24 (2), mié 25 (3), jue 26 (4), vie 27 (5), lun 30 (6),
 // 1-dic (7), 2 (8), 3 (9), 4 (10)… El sábado 14-nov fue el segundo sábado (hábil); el 21 y el 28 no.
@@ -214,3 +227,60 @@ describe('proyectarLotes (RF-2.6)', () => {
     expect(cant(r, 'Z')).toBe(500);
   });
 });
+
+describe('umbrales editables', () => {
+  it('por defecto 30 y 90', () => expect(UMBRALES_VENCIMIENTO_INICIALES).toEqual({ alta: 30, media: 90 }));
+  it('valida enteros, rangos y que media sea mayor que alta', () => {
+    expect(validarUmbralesVencimiento(30, 90).ok).toBe(true);
+    expect(validarUmbralesVencimiento(1, 2).ok).toBe(true);
+    expect(validarUmbralesVencimiento(365, 730).ok).toBe(true);
+    expect(validarUmbralesVencimiento(0, 90).ok).toBe(false);
+    expect(validarUmbralesVencimiento(366, 700).ok).toBe(false);
+    expect(validarUmbralesVencimiento(30, 731).ok).toBe(false);
+    expect(validarUmbralesVencimiento(30, 30).ok).toBe(false);
+    expect(validarUmbralesVencimiento(60, 30)).toMatchObject({ ok: false, error: 'Prioridad media debe ser mayor que prioridad alta.' });
+    expect(validarUmbralesVencimiento(30.5, 90).ok).toBe(false);
+    expect(validarUmbralesVencimiento(Number.NaN, 90).ok).toBe(false);
+  });
+  it('lee lo guardado y vuelve a 30/90 si falta o es inválido', () => {
+    expect(normalizarUmbralesVencimiento({ alta: 15, media: 60 })).toEqual({ alta: 15, media: 60 });
+    expect(normalizarUmbralesVencimiento(undefined)).toEqual({ alta: 30, media: 90 });
+    expect(normalizarUmbralesVencimiento({ alta: 60, media: 30 })).toEqual({ alta: 30, media: 90 });
+    expect(normalizarUmbralesVencimiento({ alta: '15', media: 60 })).toEqual({ alta: 30, media: 90 });
+    expect(normalizarUmbralesVencimiento('basura')).toEqual({ alta: 30, media: 90 });
+  });
+  it('cambian el nivel de A2', () => {
+    const lotes = [vista({ lote: 'x', vence: '2027-01-10' })]; // 51 días
+    const con = (umbrales: { alta: number; media: number }) => evaluarVencimientos({ lotes, consumos: sinConsumo, existencias: new Map(), hoy: HOY, umbrales }).alertas[0]?.nivel;
+    expect(con({ alta: 30, media: 90 })).toBe('media');
+    expect(con({ alta: 60, media: 120 })).toBe('alta');
+    expect(con({ alta: 15, media: 45 })).toBeNull();
+  });
+});
+
+describe('evaluarVencimientos', () => {
+  it('proyecta y luego alerta sobre lo proyectado', () => {
+    // 13-nov: 1 000; 10/día → hoy 940. Vence el 27-nov (5 hábiles): consumirá 50 → sobran 890 → A1.
+    const r = evaluarVencimientos({ lotes: [guardado({ ultimaVez: '2026-11-13', vence: '2026-11-27' })], consumos: consumo(10), existencias: new Map(), hoy: HOY });
+    expect(r.lotes[0]?.cantidad).toBe(940);
+    expect(r.alertas[0]?.a1?.excedente).toBe(890);
+    expect(r.resumen).toMatchObject({ alta: 1, a1: 1 });
+  });
+});
+
+describe('ingresosSinSumar', () => {
+  it('lista los segundos sábados entre la última carga y hoy', () => {
+    expect(ingresosSinSumar('2026-11-13', '2026-11-20')).toEqual(['2026-11-14']);
+    expect(ingresosSinSumar('2026-10-16', '2026-11-20')).toEqual(['2026-11-14']);
+    expect(ingresosSinSumar('2026-10-01', '2026-12-20')).toEqual(['2026-10-10', '2026-11-14', '2026-12-12']);
+  });
+  it('no cuenta el día de la carga y sí el de hoy', () => {
+    expect(ingresosSinSumar('2026-11-14', '2026-11-20')).toEqual([]);
+    expect(ingresosSinSumar('2026-11-13', '2026-11-14')).toEqual(['2026-11-14']);
+  });
+  it('sin carga previa o carga de hoy: nada', () => {
+    expect(ingresosSinSumar(null, '2026-11-20')).toEqual([]);
+    expect(ingresosSinSumar('2026-11-20', '2026-11-20')).toEqual([]);
+  });
+});
+

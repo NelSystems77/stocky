@@ -1,5 +1,6 @@
-import { diaSemana, esDiaLaborable, sumarDias } from './calendario';
+import { diaSemana, esDiaLaborable, inicioSemana, sumarDias } from './calendario';
 import { DIAS_NOMBRE, ocurrenciasProgramadas, type Programado, type Seguimiento } from './pedidosEnvios';
+import type { ResumenVencimientos } from './vencimientos';
 import { vistaHoy, type Cumplimiento, type Tarea } from './tareas';
 import type { FechaISO } from './types';
 
@@ -13,6 +14,8 @@ export interface AjustesNotificaciones {
   recordatorios: boolean;
   /** «Preparar envío / poner en trámite el pedido», según la anticipación de cada uno (7:00 a. m.). */
   pedidosEnvios: boolean;
+  /** Lotes vencidos o de prioridad alta (7:00 a. m.). */
+  vencimientos: boolean;
 }
 
 export const AJUSTES_NOTIFICACIONES_INICIALES: AjustesNotificaciones = {
@@ -20,6 +23,7 @@ export const AJUSTES_NOTIFICACIONES_INICIALES: AjustesNotificaciones = {
   resumenMediodia: true,
   recordatorios: true,
   pedidosEnvios: true,
+  vencimientos: true,
 };
 
 export interface Aviso {
@@ -74,6 +78,8 @@ export function planificarAvisos(p: {
   /** Pedidos y envíos del 771; vacío para quien no los tiene. */
   programados?: readonly Programado[];
   seguimientos?: readonly Seguimiento[];
+  /** Resumen de alertas de lotes (A1/A2 y vencidos); `undefined` si la cuenta no tiene lotes. */
+  vencimientos?: ResumenVencimientos;
 }): Aviso[] {
   const feriados = p.feriados ?? [];
   if (!esDiaLaborable(p.hoy, feriados)) return [];
@@ -96,6 +102,9 @@ export function planificarAvisos(p: {
       cuerpo: o.clase === 'envio' ? `Sale ${cuando}.` : `Toca ${cuando}.`,
     });
   }
+
+  const av = avisoVencimientos(p, feriados);
+  if (av) avisos.push(av);
 
   if (p.franja === HORA_RESUMEN_MANANA && p.ajustes.resumenManana) {
     const partes = [
@@ -134,3 +143,36 @@ export function planificarAvisos(p: {
 
   return avisos;
 }
+
+/**
+ * Aviso de lotes por vencer a las 7:00: **cada día laborable mientras haya lotes vencidos con existencia** (meta: cero), y,
+ * si no hay vencidos, **una vez por semana** (el primer día laborable) cuando haya lotes de prioridad alta. Así no se
+ * repite a diario lo que no cambia.
+ */
+function avisoVencimientos(
+  p: { hoy: FechaISO; franja: string; ajustes: AjustesNotificaciones; vencimientos?: ResumenVencimientos },
+  feriados: readonly FechaISO[],
+): Aviso | null {
+  const r = p.vencimientos;
+  if (!r || p.franja !== HORA_RESUMEN_MANANA || !p.ajustes.vencimientos) return null;
+  if (r.vencidos > 0) {
+    return {
+      clave: `${p.hoy}_vencimientos`,
+      titulo: `Vencimientos · ${plural(r.vencidos, 'lote vencido', 'lotes vencidos')}`,
+      cuerpo: `${r.alta > 0 ? `${plural(r.alta, 'más de prioridad alta', 'más de prioridad alta')}. ` : ''}Revisa y gestiona los lotes en Vencimientos.`,
+    };
+  }
+  if (r.alta > 0) {
+    let primero = true;
+    for (let f = inicioSemana(p.hoy); f < p.hoy; f = sumarDias(f, 1)) if (esDiaLaborable(f, feriados)) primero = false;
+    if (primero) {
+      return {
+        clave: `${p.hoy}_vencimientos`,
+        titulo: `Vencimientos · ${plural(r.alta, 'lote de prioridad alta', 'lotes de prioridad alta')}`,
+        cuerpo: 'Revisa los lotes por vencer o que no se consumirán a tiempo en Vencimientos.',
+      };
+    }
+  }
+  return null;
+}
+

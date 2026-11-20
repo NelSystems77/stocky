@@ -1,6 +1,16 @@
-import type { FilaLote } from '@/lib/pdf/lotes';
 import { aUnidadesBase, TABLA_UD_INICIAL, type TablaUD } from './unidades';
 import type { FechaISO } from './types';
+
+/** Fila de lote tal como la lee el PDF (cantidad en la UD de la fila). Es la forma de `FilaLote` de `lib/pdf/lotes`. */
+export interface FilaLoteLeida {
+  codigo: string;
+  ud: string;
+  descripcion: string;
+  lote: string;
+  vence: FechaISO;
+  existencia: number;
+  valor: number;
+}
 
 /** Estado de un lote guardado. `agotado` = ya no aparece en el último reporte. */
 export type EstadoLote = 'activo' | 'gestionado' | 'vencido' | 'agotado';
@@ -48,7 +58,7 @@ const igual = (a: number, b: number) => Math.abs(a - b) < IGUAL;
  * Convierte las filas del reporte a lotes en unidades base. Si el mismo lote (código, lote y vencimiento)
  * viene en dos filas, se suman cantidad y valor.
  */
-export function lotesDesdeFilas(filas: readonly FilaLote[], tabla: TablaUD = TABLA_UD_INICIAL): Lote[] {
+export function lotesDesdeFilas(filas: readonly FilaLoteLeida[], tabla: TablaUD = TABLA_UD_INICIAL): Lote[] {
   const mapa = new Map<string, Lote>();
   for (const f of filas) {
     const id = idLote(f.codigo, f.lote, f.vence);

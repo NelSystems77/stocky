@@ -1,10 +1,35 @@
-import { diasHabilesEntre, sumarDias } from './calendario';
+import { diasHabilesEntre, esSegundoSabado, sumarDias } from './calendario';
 import type { LoteGuardado } from './lotes';
 import type { FechaISO } from './types';
 
 /** A2: faltan 90 días o menos → media; 30 o menos → alta (PRD §6). */
 export const DIAS_A2_MEDIA = 90;
 export const DIAS_A2_ALTA = 30;
+
+export interface UmbralesVencimiento {
+  /** Días de calendario: faltan esto o menos → prioridad alta (A2). */
+  alta: number;
+  /** Faltan esto o menos → prioridad media (A2). Mayor que `alta`. */
+  media: number;
+}
+export const UMBRALES_VENCIMIENTO_INICIALES: UmbralesVencimiento = { alta: DIAS_A2_ALTA, media: DIAS_A2_MEDIA };
+export const MAX_DIAS_ALTA = 365;
+export const MAX_DIAS_MEDIA = 730;
+
+/** Valida lo que escribe la persona en Ajustes: enteros, 1 a 365 para alta, hasta 730 para media y media mayor que alta. */
+export function validarUmbralesVencimiento(alta: number, media: number): { ok: true } | { ok: false; error: string } {
+  if (!Number.isInteger(alta) || alta < 1 || alta > MAX_DIAS_ALTA) return { ok: false, error: `Prioridad alta: un número entero de 1 a ${MAX_DIAS_ALTA} días.` };
+  if (!Number.isInteger(media) || media > MAX_DIAS_MEDIA) return { ok: false, error: `Prioridad media: un número entero hasta ${MAX_DIAS_MEDIA} días.` };
+  if (media <= alta) return { ok: false, error: 'Prioridad media debe ser mayor que prioridad alta.' };
+  return { ok: true };
+}
+
+/** Lee los umbrales guardados; si faltan o no son válidos vuelven a 30 y 90 (nunca se rompe una alerta por un dato malo). */
+export function normalizarUmbralesVencimiento(valor: unknown): UmbralesVencimiento {
+  const v = (valor ?? {}) as { alta?: unknown; media?: unknown };
+  if (typeof v.alta === 'number' && typeof v.media === 'number' && validarUmbralesVencimiento(v.alta, v.media).ok) return { alta: v.alta, media: v.media };
+  return { ...UMBRALES_VENCIMIENTO_INICIALES };
+}
 
 /** Menos de esto (unidades base) no cuenta como excedente: evita alertas por redondeo. */
 const EXCEDENTE_MINIMO = 0.5;
@@ -236,3 +261,47 @@ export function proyectarLotes(p: {
 
   return { lotes: [...vista.values()], excesoReal, ajustados };
 }
+
+export interface EvaluacionVencimientos extends Proyeccion {
+  alertas: AlertaLote[];
+  resumen: ResumenVencimientos;
+}
+
+/**
+ * Todo junto: proyecta los lotes (RF-2.6) y evalúa A1/A2 sobre lo proyectado. Lo usan igual la pantalla, el aviso de las
+ * 7:00 y Chango IA (el servidor corre este mismo código).
+ */
+export function evaluarVencimientos(p: {
+  lotes: readonly LoteGuardado[];
+  consumos: ReadonlyMap<string, number | null>;
+  existencias: ReadonlyMap<string, ExistenciaReal>;
+  hoy: FechaISO;
+  feriados?: readonly FechaISO[];
+  umbrales?: UmbralesVencimiento;
+}): EvaluacionVencimientos {
+  const feriados = p.feriados ?? [];
+  const proyeccion = proyectarLotes({ lotes: p.lotes, consumos: p.consumos, existencias: p.existencias, hoy: p.hoy, feriados });
+  const alertas = analizarVencimientos({
+    lotes: proyeccion.lotes,
+    consumos: p.consumos,
+    hoy: p.hoy,
+    feriados,
+    diasMedia: p.umbrales?.media,
+    diasAlta: p.umbrales?.alta,
+  });
+  return { ...proyeccion, alertas, resumen: resumirVencimientos(alertas) };
+}
+
+/**
+ * Ingresos de mercadería (segundo sábado) ocurridos **después** de la última carga de lotes y hasta hoy. La proyección
+ * no los suma porque Stocky no sabe qué lotes entraron ni cuánto: eso lo trae el reporte de lotes real.
+ */
+export function ingresosSinSumar(ultimaCarga: FechaISO | null, hoy: FechaISO): FechaISO[] {
+  if (ultimaCarga === null || ultimaCarga >= hoy) return [];
+  const fechas: FechaISO[] = [];
+  for (let f = sumarDias(ultimaCarga, 1); f <= hoy; f = sumarDias(f, 1)) {
+    if (esSegundoSabado(f)) fechas.push(f);
+  }
+  return fechas;
+}
+
