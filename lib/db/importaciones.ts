@@ -20,7 +20,7 @@ import { registrarEscritura } from './sync';
 const LOTE = 400;
 
 export const ImportacionSchema = z.object({
-  tipoReporte: z.enum(['existenciasDespacho', 'productosEnDespacho']),
+  tipoReporte: z.enum(['existenciasDespacho', 'productosEnDespacho', 'lotesVencimientos']),
   fechaReporte: z.instanceof(Timestamp),
   archivo: z.string(),
   filas: z.number().int(),

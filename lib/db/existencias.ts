@@ -1,4 +1,4 @@
-import { collection, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, Timestamp, type Unsubscribe } from 'firebase/firestore';
 import { z } from 'zod';
 import { firestore } from '@/lib/firebase';
 
@@ -31,4 +31,15 @@ export function suscribirExistencias(uid: string, alCambiar: (lista: Existencia[
     },
     () => alCambiar([]),
   );
+}
+
+/** Lectura única de las existencias (para cuadrarlas con otro reporte). Los documentos inválidos se omiten. */
+export async function leerExistencias(uid: string): Promise<Existencia[]> {
+  const snap = await getDocs(collection(firestore(), `usuarios/${uid}/existencias`));
+  const lista: Existencia[] = [];
+  for (const d of snap.docs) {
+    const r = ExistenciaSchema.safeParse(d.data());
+    if (r.success) lista.push(r.data);
+  }
+  return lista;
 }

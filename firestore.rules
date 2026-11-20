@@ -93,8 +93,19 @@ service cloud.firestore {
       match /existencias/{codigo} {
         allow read, write: if accesoModulo(uid, 'inventario');
       }
+      // Lotes con vencimiento (carga del reporte de lotes). Cantidad en unidades base; nunca se borran (queda `agotado`).
       match /lotes/{id} {
-        allow read, write: if accesoModulo(uid, 'inventario');
+        allow read, delete: if accesoModulo(uid, 'inventario');
+        allow create, update: if accesoModulo(uid, 'inventario')
+          && request.resource.data.codigo is string
+          && request.resource.data.codigo.size() > 0
+          && request.resource.data.lote is string
+          && request.resource.data.lote.size() > 0
+          && request.resource.data.lote.size() <= 60
+          && request.resource.data.vence.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.cantidad is number
+          && request.resource.data.cantidad >= 0
+          && request.resource.data.estado in ['activo', 'gestionado', 'vencido', 'agotado'];
       }
       match /consumos/{id} {
         allow read, write: if accesoModulo(uid, 'inventario');

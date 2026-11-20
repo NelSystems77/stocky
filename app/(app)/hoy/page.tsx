@@ -33,6 +33,7 @@ function saludo(ahora: Date): string {
 const ETIQUETA_TIPO = {
   existenciasDespacho: 'Existencias de despacho',
   productosEnDespacho: 'Productos en despacho',
+  lotesVencimientos: 'Lotes y vencimientos',
 } as const;
 
 export default function Hoy() {
@@ -122,7 +123,7 @@ export default function Hoy() {
           <div>
             <p className="font-semibold">Último reporte: {ETIQUETA_TIPO[ultima.tipoReporte]}</p>
             <p className="text-text-muted">
-              {format(ultima.fechaReporte.toDate(), "d 'de' MMMM yyyy", { locale: es })} · {ultima.filas} productos
+              {format(ultima.fechaReporte.toDate(), "d 'de' MMMM yyyy", { locale: es })} · {ultima.filas} {ultima.tipoReporte === 'lotesVencimientos' ? 'lotes' : 'productos'}
             </p>
           </div>
           <Link href="/importar/" className="inline-flex min-h-11 items-center rounded-2xl bg-surface-2 px-4 font-semibold">
