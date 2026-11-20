@@ -4,19 +4,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirLotes } from '@/lib/db/lotes';
+import { suscribirUsuario } from '@/lib/db/usuario';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { ultimaCargaLotes, type LoteGuardado } from '@/lib/domain/lotes';
 import {
-  analizarVencimientos,
-  proyectarLotes,
-  resumirVencimientos,
+  evaluarVencimientos,
+  ingresosSinSumar,
+  UMBRALES_VENCIMIENTO_INICIALES,
   type AlertaLote,
   type ExistenciaReal,
   type LoteVista,
   type ResumenVencimientos,
+  type UmbralesVencimiento,
 } from '@/lib/domain/vencimientos';
 import { useRiesgo } from '@/lib/riesgo/useRiesgo';
-import { useFeriados } from '@/lib/tareas/useFeriados';
 
 export interface EstadoVencimientos {
   uid: string | null;
@@ -32,6 +33,9 @@ export interface EstadoVencimientos {
   ultimaCarga: string | null;
   excesoReal: Set<string>;
   ajustados: Map<string, number>;
+  /** Segundos sábados (ingresos) desde la última carga que la proyección no suma. */
+  ingresosSinSumar: string[];
+  umbrales: UmbralesVencimiento;
   existencias: Existencia[];
   hoy: string;
 }
@@ -43,14 +47,18 @@ export interface EstadoVencimientos {
 export function useVencimientos(): EstadoVencimientos {
   const { estado } = useAuth();
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
-  const feriados = useFeriados();
+  const [ajustes, setAjustes] = useState<{ feriados: readonly string[]; umbrales: UmbralesVencimiento }>({ feriados: [], umbrales: UMBRALES_VENCIMIENTO_INICIALES });
   const [lotes, setLotes] = useState<LoteGuardado[] | undefined>(undefined);
   const [existencias, setExistencias] = useState<Existencia[] | undefined>(undefined);
   const { riesgos, hayConsumos } = useRiesgo(existencias);
 
   useEffect(() => {
     if (!uid) return;
-    const bajas = [suscribirLotes(uid, setLotes), suscribirExistencias(uid, setExistencias)];
+    const bajas = [
+      suscribirLotes(uid, setLotes),
+      suscribirExistencias(uid, setExistencias),
+      suscribirUsuario(uid, (d) => setAjustes({ feriados: d.feriados, umbrales: d.umbralesVencimiento })),
+    ];
     return () => bajas.forEach((b) => b());
   }, [uid]);
 
@@ -65,20 +73,29 @@ export function useVencimientos(): EstadoVencimientos {
       if (e.existencia !== undefined) reales.set(e.codigo, { existencia: e.existencia, fecha: hoyCostaRica(e.actualizadoEn.toDate()) });
     }
     const guardados = lotes ?? [];
-    const { lotes: vista, excesoReal, ajustados } = proyectarLotes({ lotes: guardados, consumos, existencias: reales, hoy, feriados });
-    const alertas = analizarVencimientos({ lotes: vista, consumos, hoy, feriados });
+    const { lotes: vista, excesoReal, ajustados, alertas, resumen } = evaluarVencimientos({
+      lotes: guardados,
+      consumos,
+      existencias: reales,
+      hoy,
+      feriados: ajustes.feriados,
+      umbrales: ajustes.umbrales,
+    });
+    const ultimaCarga = ultimaCargaLotes(guardados);
     return {
       uid,
       cargando,
       lotes: guardados,
       vista,
       alertas,
-      resumen: resumirVencimientos(alertas),
-      ultimaCarga: ultimaCargaLotes(guardados),
+      resumen,
+      ultimaCarga,
       excesoReal,
       ajustados,
+      ingresosSinSumar: ingresosSinSumar(ultimaCarga, hoy),
+      umbrales: ajustes.umbrales,
       existencias: existencias ?? [],
       hoy,
     };
-  }, [uid, lotes, existencias, riesgos, hayConsumos, feriados, hoy]);
+  }, [uid, lotes, existencias, riesgos, hayConsumos, ajustes, hoy]);
 }

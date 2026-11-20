@@ -6,14 +6,17 @@ import { ArrowLeft, Search, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
+import { BotonesExportar } from '@/components/reportes/BotonesExportar';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { FilaLote } from '@/components/vencimientos/FilaLote';
 import { HistorialCargas } from '@/components/vencimientos/HistorialCargas';
 import { HojaGestionar } from '@/components/vencimientos/HojaGestionar';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { gestionarLote, reabrirLote } from '@/lib/db/lotes';
 import { coincide } from '@/lib/domain/busqueda';
 import { contarUrgentes, type AlertaLote, type LoteVista } from '@/lib/domain/vencimientos';
+import { reporteVencimientos } from '@/lib/reports/construir';
 import { useVencimientos } from '@/lib/vencimientos/useVencimientos';
 
 type Filtro = 'urgentes' | 'medias' | 'todos' | 'gestionados';
@@ -24,6 +27,7 @@ const fecha = (f: string) => format(parseISO(f), "d 'de' MMM yyyy", { locale: es
 
 export default function Vencimientos() {
   const v = useVencimientos();
+  const { estado } = useAuth();
   const { mostrar } = useToast();
   const [pestana, setPestana] = useState<Pestana>('lotes');
   const [filtro, setFiltro] = useState<Filtro | null>(null);
@@ -138,6 +142,12 @@ export default function Vencimientos() {
                 {v.excesoReal.size} productos tienen más existencia real que la proyectada (¿un ingreso sin registrar?). Carga el reporte de lotes para corregirlo.
               </p>
             )}
+            {v.ingresosSinSumar.length > 0 && (
+              <p className="rounded-xl bg-info/10 p-2 text-xs text-info">
+                Desde la última carga hubo {v.ingresosSinSumar.length === 1 ? 'ingreso de mercadería' : 'ingresos de mercadería'} ({v.ingresosSinSumar.map(fecha).join(', ')}) que la proyección no incluye: no sé qué lotes entraron ni cuánto.
+                Carga el reporte de lotes y vencimientos para ver los lotes nuevos.
+              </p>
+            )}
             {v.ajustados.size > 0 && <p className="text-xs text-text-muted">{v.ajustados.size} productos se ajustaron a la existencia real del último reporte de existencias.</p>}
             <p className="text-xs text-text-muted">Las cantidades con ≈ son una proyección desde la última carga (consumo diario promedio, primero lo que vence antes).</p>
           </Card>
@@ -175,6 +185,21 @@ export default function Vencimientos() {
               ))}
             </div>
           </div>
+
+          {filas.length > 0 && estado.fase === 'listo' && (
+            <section aria-label="Exportar la lista" className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
+              <p className="text-sm">Exportar esta lista ({filas.length} lotes)</p>
+              <BotonesExportar
+                armar={() =>
+                  reporteVencimientos(
+                    filas,
+                    { filtro: chips.find((c) => c.id === activo)?.etiqueta ?? 'Todos', hoy: v.hoy, ultimaCarga: v.ultimaCarga, resumen: v.resumen, umbrales: v.umbrales },
+                    { usuario: estado.sesion.nombre, unidad: estado.sesion.unidad ?? '', generadoEn: new Date() },
+                  )
+                }
+              />
+            </section>
+          )}
 
           {filas.length === 0 ? (
             <Card className="text-sm text-text-muted">{activo === 'urgentes' ? 'No hay lotes urgentes. Cero vencidos por ahora.' : 'No hay lotes con esos criterios.'}</Card>

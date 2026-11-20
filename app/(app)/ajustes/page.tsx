@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { guardarAjusteNotificacion, guardarFeriados, guardarMargenRiesgo, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
+import { guardarAjusteNotificacion, guardarFeriados, guardarMargenRiesgo, guardarUmbralesVencimiento, suscribirUsuario, type DatosUsuario } from '@/lib/db/usuario';
 import { MARGEN_RIESGO_MAXIMO } from '@/lib/domain/riesgo';
+import { MAX_DIAS_ALTA, MAX_DIAS_MEDIA, validarUmbralesVencimiento } from '@/lib/domain/vencimientos';
 import { agregarFeriado, esFechaValida, feriadosPorAnio, quitarFeriado } from '@/lib/domain/feriados';
 import type { FechaISO } from '@/lib/domain/types';
 import type { AjustesNotificaciones } from '@/lib/domain/notificaciones';
@@ -20,6 +21,7 @@ const TIPOS: { clave: keyof AjustesNotificaciones; titulo: string; detalle: stri
   { clave: 'resumenManana', titulo: 'Resumen de las 7:00 a. m.', detalle: 'Tareas de hoy y pendientes de días anteriores.' },
   { clave: 'resumenMediodia', titulo: 'Resumen de las 12:00 m. d.', detalle: 'Lo que falta por hacer hoy.' },
   { clave: 'recordatorios', titulo: 'Recordatorio a la hora de cada tarea', detalle: 'Solo para las tareas que tienen hora.' },
+  { clave: 'vencimientos', titulo: 'Lotes por vencer', detalle: 'A las 7:00 a. m.: cada día si hay lotes vencidos; una vez por semana si hay de prioridad alta.' },
   { clave: 'pedidosEnvios', titulo: 'Preparar envíos y pedidos', detalle: 'A las 7:00 a. m., según la anticipación de cada uno.' },
 ];
 
@@ -39,6 +41,8 @@ export default function Ajustes() {
   const [ocupado, setOcupado] = useState(false);
   const [nueva, setNueva] = useState('');
   const [margen, setMargen] = useState<string | null>(null);
+  const [diasAlta, setDiasAlta] = useState<string | null>(null);
+  const [diasMedia, setDiasMedia] = useState<string | null>(null);
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
 
   useEffect(() => {
@@ -229,6 +233,51 @@ export default function Ajustes() {
           </label>
           <p className="text-xs text-text-muted">
             Un producto está <strong>crítico</strong> si la existencia no alcanza hasta el próximo ingreso (segundo sábado), y <strong>en riesgo</strong> si alcanza pero le sobran menos de estos días. Por defecto, 7.
+          </p>
+        </Card>
+      </section>
+
+      <section aria-label="Alertas de vencimiento" className="mt-8 flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Alertas de vencimiento</h2>
+        <Card className="flex flex-col gap-3">
+          {(
+            [
+              ['alta', 'Prioridad alta: faltan estos días o menos', diasAlta, setDiasAlta, MAX_DIAS_ALTA, datos.umbralesVencimiento.alta],
+              ['media', 'Prioridad media: faltan estos días o menos', diasMedia, setDiasMedia, MAX_DIAS_MEDIA, datos.umbralesVencimiento.media],
+            ] as const
+          ).map(([clave, etiqueta, valor, poner, maximo, actual]) => (
+            <label key={clave} className="flex flex-col gap-1 text-sm">
+              {etiqueta}
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={maximo}
+                disabled={!datos.existe}
+                value={valor ?? String(actual)}
+                onChange={(e) => poner(e.target.value)}
+                onBlur={() => {
+                  if (diasAlta === null && diasMedia === null) return;
+                  const alta = Number(diasAlta ?? datos.umbralesVencimiento.alta);
+                  const media = Number(diasMedia ?? datos.umbralesVencimiento.media);
+                  setDiasAlta(null);
+                  setDiasMedia(null);
+                  const r = validarUmbralesVencimiento(alta, media);
+                  if (!r.ok) {
+                    mostrar(r.error, { tono: 'error' });
+                    return;
+                  }
+                  if (alta !== datos.umbralesVencimiento.alta || media !== datos.umbralesVencimiento.media) {
+                    void guardarUmbralesVencimiento(uid, { alta, media }).catch(() => mostrar('No se pudo guardar el ajuste.', { tono: 'error' }));
+                  }
+                }}
+                className="min-h-11 w-full rounded-2xl bg-surface-2 px-4 text-text"
+              />
+            </label>
+          ))}
+          <p className="text-xs text-text-muted">
+            Un lote con existencia entra en <strong>prioridad alta</strong> si le faltan {datos.umbralesVencimiento.alta} días o menos para vencer, y en <strong>prioridad media</strong> si le faltan {datos.umbralesVencimiento.media} o menos.
+            Además, es de prioridad alta el que no se consumirá antes de vencer según el consumo diario. Por defecto, 30 y 90 días; la media debe ser mayor que la alta.
           </p>
         </Card>
       </section>
