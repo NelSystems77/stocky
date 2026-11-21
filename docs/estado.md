@@ -5,6 +5,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 
 ## Dónde estamos
 
+- **Pendiente: feedback de las pruebas de usuario (capa 8)** de la persona usuaria con la app en producción (Hoy, Agenda → Pedidos y envíos, Reportes, Ajustes, importación de existencias y de lotes, Inventario → Vencimientos con sus pestañas y exportación). Lo hará ella y enviará sus comentarios; **corregir lo que reporte es lo primero de la próxima sesión**. Ya se corrigió en pruebas reales: el «Cargando…» infinito de Vencimientos sin cargas de consumos (PR 16), las 13 «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15).
 - **`main` incluye hasta el PR 11** y está desplegado en producción por GitHub Actions: Fase 3 (registros), Chango IA (PR 9), **pedidos y envíos a puestos** (PR 10) y **Vencimientos completo** (PR 11).
 - **Ningún PR abierto.**
 - **Las pantallas de los PR 10 y 11 nunca se probaron en el navegador** (solo tipos, lint, build, pruebas unitarias y pruebas contra el emulador de Firestore). Es lo primero que conviene hacer: abrir Hoy, Agenda → Pedidos y envíos, Reportes, Ajustes, la importación del PDF de lotes y Inventario → Vencimientos, en celular (360 px) y en PC.
