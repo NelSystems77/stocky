@@ -7,12 +7,12 @@ La especificación funcional vive en `docs/PRD.md`: es la fuente de verdad de **
 
 ## 1. Qué es Stocky
 
-PWA asistente de pendientes para el **Almacén Local de medicamentos 771** (usuario principal) y la **farmacia 772** (usuario secundario) del Área de Salud de Coronado (CCSS). Concentra: vencimientos, riesgo de agotamiento, bajos, agotados, agenda de pedidos, envíos a los EBAIS (C, Z, V, R), ubicaciones con QR, tareas diarias, preconteo, traslados (orden SAP 50000…), dañados, reportes PDF/Excel y el asistente **Chango IA**.
+PWA asistente de pendientes para el **Almacén Local de medicamentos 771** (usuario principal) y la **farmacia 772** (usuario secundario) del Área de Salud de Coronado (CCSS). Concentra: vencimientos, riesgo de agotamiento, bajos, agotados, agenda de pedidos, **pedido al ALDI** (propuesta de reposición), envíos a los EBAIS (C, Z, V, R), ubicaciones con QR, tareas diarias, preconteo, traslados (orden SAP 50000…), dañados, reportes PDF/Excel y el asistente **Chango IA**.
 
 Reglas de negocio que nunca se rompen:
 
 - **Solo datos de medicamentos y operativos. Nunca datos de pacientes.**
-- Stocky **lee** reportes y **recuerda** trámites; no escribe en SIFA ni SAP y no calcula cantidades de pedido.
+- Stocky **lee** reportes y **recuerda** trámites; no escribe en SIFA ni SAP. Única excepción, pedida por la persona usuaria (2026-11-21): el **Pedido al ALDI** (Inventario) calcula una **propuesta** de cantidades con la cuota, la existencia y un factor; la persona la revisa y ajusta, y el pedido se tramita en SIFA/SAP. Fuera de eso, Stocky no calcula cantidades de pedido.
 - Cada usuario ve **solo sus datos**; el catálogo de códigos es compartido.
 - El 772 solo ve Tareas, Agotados, Vencimientos y Reportes, salvo módulos que el 771 le habilite.
 

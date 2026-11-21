@@ -120,6 +120,22 @@ service cloud.firestore {
       match /consumos/{id} {
         allow read, write: if accesoModulo(uid, 'inventario');
       }
+      // Pedidos al ALDI (propuesta de reposición): solo el 771 y el superadmin; la 772 tiene `inventario` de base pero no pide.
+      match /pedidosAldi/{id} {
+        allow read, delete: if esSuperadmin() || (esDueno(uid) && esUnidad771());
+        allow create: if (esSuperadmin() || (esDueno(uid) && esUnidad771()))
+          && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && (request.resource.data.fechaReporteSifa == null
+              || (request.resource.data.fechaReporteSifa is string
+                  && request.resource.data.fechaReporteSifa.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && request.resource.data.factor is number
+          && request.resource.data.factor > 0
+          && request.resource.data.dias is int
+          && request.resource.data.dias > 0
+          && request.resource.data.lineas is list;
+        // Un pedido guardado no se edita: es lo que se pidió ese día.
+        allow update: if false;
+      }
       // Conteo físico contra SIFA: la foto de la existencia de SIFA queda congelada en el documento del conteo;
       // lo contado vive en `lineas` (cantidad en unidades base, una por producto contado).
       // Solo el 771 (y el superadmin): la 772 tiene `inventario` de base pero no cuenta el almacén.

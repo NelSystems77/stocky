@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarClock, ClipboardCheck, Search, Upload } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, PackagePlus, Search, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { FilaProducto } from '@/components/inventario/FilaProducto';
@@ -86,6 +86,12 @@ export default function Inventario() {
           <Link href="/inventario/conteo/" className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
             <ClipboardCheck aria-hidden className="size-4" />
             Conteo físico
+          </Link>
+        )}
+        {estado.fase === 'listo' && estado.sesion.unidad !== '772' && (
+          <Link href="/inventario/pedido-aldi/" className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
+            <PackagePlus aria-hidden className="size-4" />
+            Pedido al ALDI
           </Link>
         )}
       </div>

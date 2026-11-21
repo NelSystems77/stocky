@@ -1,6 +1,6 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-21** (después del PR 25: puntos 4 y 6 completos). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-21** (después del PR 25 y del Pedido al ALDI). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
@@ -10,7 +10,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 - **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. Ver «Código pendiente».
 - **`main` incluye hasta el PR 25** y está desplegado en producción por GitHub Actions: registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
 - **Ningún PR abierto.**
-- **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar, la edición de dañados, traslados y entregas, la recepción de traslados con diferencia y el chip «Entregas sin recibir».
+- **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: Pedido al ALDI, conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar, la edición de dañados, traslados y entregas, la recepción de traslados con diferencia y el chip «Entregas sin recibir».
 - La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
 
 ## Construido
@@ -28,6 +28,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | **Pedidos y envíos a puestos (M4 y M5)**, con avisos, feriados al día hábil anterior y secciones en el resumen mensual | Hecho (PR 10) |
 | **Lotes y vencimientos:** lector del PDF real, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | Hecho (PR 11) |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
+| **Pedido al ALDI** (Inventario → Pedido al ALDI): propuesta de reposición = cuota × factor × (días ÷ 30) − existencia, factor 1.25 / 1.5 / 2 u otro, período mensual / 15 días u otro, ajustes a mano, historial y exportar PDF/Excel | Hecho (PR 26, sin probar en el celular) |
 | **Conteo físico contra SIFA** (Inventario → Conteo físico): foto congelada de SIFA, captura en sueltas con la UD, diferencia con signo, filas grises, «solo diferencias», productos fuera de SIFA, exportar PDF y Excel (con gris) | Hecho (PR 23, sin probar en navegador) |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
@@ -66,6 +67,8 @@ Sin número (quedan pendientes por ahora):
 - Vencimientos: que la proyección sume ingresos (imposible sin los lotes que entraron: el reporte real los trae).
 - Aviso **push** cuando aparezca una diferencia nueva entre lotes y existencias (se descartó por ahora: solo pantalla y chip).
 - Probar en el navegador Ajustes (umbrales), la importación del PDF de lotes y la exportación de Vencimientos.
+
+- **Pedido al ALDI:** recordatorio periódico (hoy se puede agregar un pedido «ALDI» a mano en Agenda → Pedidos con su periodicidad); factor por producto; descontar lo que viene en camino (traslados/pedidos pendientes); que Chango conozca los pedidos al ALDI.
 
 ### Fase 5 (mejoras)
 Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el 772.
