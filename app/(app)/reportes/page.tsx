@@ -20,6 +20,7 @@ import type { RegistroAgotado } from '@/lib/domain/agotados';
 import { hoyCostaRica, sumarDias } from '@/lib/domain/calendario';
 import type { RegistroDanado } from '@/lib/domain/danados';
 import type { RegistroPreconteo } from '@/lib/domain/preconteo';
+import { MARGEN_RIESGO_INICIAL } from '@/lib/domain/riesgo';
 import {
   ETIQUETA_SECCION,
   normalizarSeleccion,
@@ -31,7 +32,10 @@ import {
 import { ocurrencias, VENTANA_ATRAS, type Cumplimiento, type Tarea } from '@/lib/domain/tareas';
 import type { RegistroTraslado } from '@/lib/domain/traslados';
 import type { RegistroVencido } from '@/lib/domain/vencidos';
+import { bajosYRiesgo } from '@/lib/domain/bajosRiesgo';
+import { reporteBajosYRiesgo } from '@/lib/reports/bajosRiesgo';
 import { inicioFinMes, reporteResumenMensual } from '@/lib/reports/resumen';
+import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
 const DETALLE_SECCION: Record<SeccionResumen, string> = {
   tareas: 'Hechas, pospuestas, descartadas y sin hacer, por tarea',
@@ -72,6 +76,9 @@ export default function Reportes() {
     if (!uid) return;
     return suscribirUsuario(uid, setDatosUsuario);
   }, [uid]);
+
+  // Bajos y riesgo usa las existencias y los consumos del 771 (el 772 no tiene el módulo de inventario).
+  const { riesgos, hayConsumos } = useRiesgo(es771 ? existencias : undefined);
 
   const disponibles = useMemo(
     () => (es771 ? seccionesDisponibles('todos') : datosUsuario ? seccionesDisponibles(datosUsuario.modulosHabilitados) : []),
@@ -136,6 +143,17 @@ export default function Reportes() {
     );
   }
 
+  function armarBajosRiesgo() {
+    if (hayConsumos === undefined || existencias.length === 0) return null;
+    const fechaReporte = hoyCostaRica(new Date(Math.max(...existencias.map((p) => p.actualizadoEn.toMillis()))));
+    return reporteBajosYRiesgo(
+      bajosYRiesgo(existencias, riesgos),
+      { fechaReporte, margen: datosUsuario?.margenRiesgo ?? MARGEN_RIESGO_INICIAL, hayConsumos },
+      { usuario: sesion.nombre, unidad: sesion.unidad ?? '', generadoEn: new Date() },
+      hoy,
+    );
+  }
+
   return (
     <Pantalla titulo="Reportes">
       <section aria-label="Resumen mensual de labores" className="flex flex-col gap-3 rounded-2xl bg-surface p-4">
@@ -170,8 +188,29 @@ export default function Reportes() {
         <p className="text-xs text-text-muted">El archivo se genera en tu dispositivo, también sin conexión.</p>
       </section>
 
+      {es771 && (
+        <section aria-label="Bajos y riesgo" className="flex flex-col gap-3 rounded-2xl bg-surface p-4">
+          <div>
+            <h2 className="text-lg font-semibold">Bajos y riesgo</h2>
+            <p className="text-xs text-text-muted">
+              Al día: productos críticos (no alcanzan hasta el próximo ingreso), en riesgo y bajo la cuota mínima, de lo más urgente a lo menos.
+            </p>
+          </div>
+          {existencias.length === 0 ? (
+            <p className="text-sm text-text-muted">Importa el reporte de existencias para generar este reporte.</p>
+          ) : (
+            <>
+              {hayConsumos === false && (
+                <p className="text-xs text-warning">Sin consumos cargados solo se listan los bajos. Importa «Productos en despacho» para incluir el riesgo.</p>
+              )}
+              <BotonesExportar armar={armarBajosRiesgo} deshabilitado={hayConsumos === undefined} />
+            </>
+          )}
+        </section>
+      )}
+
       <Card className="text-sm text-text-muted">
-        La lista de bajos y el reporte de agotados por período siguen en Inventario. Los reportes de Tareas, Vencimientos y Ubicaciones llegan con sus módulos.
+        El reporte de agotados por período sigue en Inventario. Los reportes de Tareas, Vencimientos y Ubicaciones llegan con sus módulos.
       </Card>
     </Pantalla>
   );

@@ -53,7 +53,7 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 
 ### Código pendiente (en orden de prioridad)
 1. ~~**Conteo físico contra SIFA** (`CLAUDE.md` §13)~~ → hecho en el PR 23. Queda por probar en el navegador y, más adelante, contar **por lote** y filtrar **por ubicación** (cuando exista el módulo). El Excel pinta de gris con `xlsx-js-style` (sumado al stack) y además marca «(falta)»/«(sobra)» en texto.
-2. **Reporte PDF/Excel «Bajos y riesgo»** (PRD §7).
+2. ~~**Reporte PDF/Excel «Bajos y riesgo»** (PRD §7)~~ → hecho en el PR 24 (Reportes → Bajos y riesgo, solo 771; sin probar en navegador).
 3. **Alerta A8** (reporte desactualizado, más de 8 días sin consumos) · **alta manual de un agotado** (RF-3.4) · **pantalla para que el 771 habilite módulos al 772** (la callable ya existe; la UI solo está en `/admin`) y navegación del 772 con esos módulos.
 4. **Elegir qué hacer con el archivo al importar** (cargar existencias, cargar lotes, actualizar consumos…): hoy Stocky detecta el tipo de reporte por su encabezado.
 5. **Resumen mensual automático** del último día hábil (requiere Function programada).
@@ -80,6 +80,6 @@ Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el
 ## Para la próxima sesión
 
 1. Probar el **conteo físico** en el celular (crear un conteo con unos pocos productos, capturar sin conexión, exportar PDF y Excel) y corregir lo que salga.
-2. Seguir el orden de prioridad: **2 · reporte «Bajos y riesgo»**, luego el 3 y así.
+2. Seguir el orden de prioridad: **3 · alerta A8, alta manual de un agotado y pantalla del 771 para habilitar módulos al 772**, luego el 4 y así.
 3. Resolver con la persona usuaria lo de Chango (crédito o dejarlo apagado) y cambiar la key temporal.
 4. Antes de abrir un PR nuevo: partir de `main` actualizado (`git pull`), y si la rama queda apilada sobre otra que se fusiona con squash, rebasar con `git rebase --onto origin/main <último commit de la rama base>`.

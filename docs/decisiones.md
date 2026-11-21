@@ -348,3 +348,12 @@ La persona usuaria fijó el orden de prioridad y el conteo físico quedó primer
 - **Excel con gris:** SheetJS (`xlsx`) no escribe colores de relleno (verificado: el `styles.xml` no los trae), así que se suma **`xlsx-js-style` 1.2.0** (fork de SheetJS con estilos; Apache-2.0; versión fijada; publicada en abril de 2022, sin cambios desde entonces; **solo escribe** libros, nunca lee archivos ajenos) y se agrega al stack de `CLAUDE.md`. Solo `generarExcel` lo usa (carga dinámica); el resumen mensual sigue con `xlsx`. Las filas con diferencia salen con fondo gris `D1D5DB` y la diferencia en negrita, y además llevan «(falta)» o «(sobra)» en texto para no depender solo del color. `npm audit` no suma hallazgos nuevos (el aviso sobre `xlsx` ya existía). Verificado en el archivo generado (relleno y negrita en `styles.xml`).
 - **Pruebas (Vitest):** conversión sueltas → UD (`20000 → 200 CN`, decimales, factor 1), signo de la diferencia, sin contar ≠ 0, foto que se conserva al importar otro reporte, resumen, `leerCantidad` y el reporte (columnas, resalte, solo diferencias, PDF y Excel válidos). Reglas de Firestore verificadas contra el emulador (dueño, foto inmutable, línea inválida, otro usuario). **La pantalla no se ha probado en el navegador.**
 
+## 2026-11-21 · Reporte «Bajos y riesgo» (PRD §7): qué lista y dónde vive
+
+- **Qué lista:** productos en A3 (crítico), A4 (en riesgo) y A5 (bajo cuota mínima). Un producto que cumple varias reglas sale **una sola vez**, con la más urgente, y una nota «También bajo cuota mínima». Los **agotados (A6) no entran**: tienen su propio reporte.
+- **Orden:** crítico (menos días hábiles primero), en riesgo (igual) y bajos (el más lejos de su mínima primero).
+- **Columnas:** Código, Descripción, Prioridad, Existencia, Cuota mínima, Alcanza (días hábiles), Ingreso en (días), Nota. Resumen por nivel.
+- **Sin consumos cargados** el riesgo no se puede calcular: el reporte lista solo los bajos y lo dice en el resumen y en pantalla.
+- **Dónde:** sección «Bajos y riesgo» en Reportes, **solo para el 771** (usa existencias y consumos del módulo de inventario). Al día (sin selector de período). La lista simple de bajos sigue disponible en Inventario.
+- **Pruebas:** orden, deduplicación, exclusión de agotados y sin consumo, sin consumos cargados, resumen y el reporte (columnas, UD, nota). **La pantalla no se probó en el navegador.**
+
