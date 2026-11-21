@@ -204,6 +204,10 @@ export function describirProgramacion(p: Programacion): string {
       return `el día ${p.diaMes} de cada mes`;
     case 'segundoSabado':
       return 'cada segundo sábado';
+    case 'tercerJueves':
+      return 'el tercer jueves del mes';
+    case 'tercerJuevesMas15':
+      return '15 días después del tercer jueves';
     case 'diaria':
       return 'todos los días laborables';
     case 'unica':

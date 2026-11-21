@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { RegistroAgotado } from '@/lib/domain/agotados';
 import { generarExcel } from './excel';
 import { generarPdf } from './pdf';
-import { reporteAgotados, reporteBajos, type ProductoReporte } from './construir';
+import { idLote, type LoteGuardado } from '@/lib/domain/lotes';
+import { evaluarVencimientos, UMBRALES_VENCIMIENTO_INICIALES } from '@/lib/domain/vencimientos';
+import { reporteAgotados, reporteBajos, reporteVencimientos, type ProductoReporte } from './construir';
 
 const emisor = { usuario: 'Ana Pérez', unidad: '771', generadoEn: new Date('2026-11-12T18:00:00Z') };
 
@@ -118,3 +120,62 @@ describe('generadores', () => {
     expect(texto).toContain('Resumen');
   });
 });
+
+describe('reporteVencimientos', () => {
+  const lote = (p: Partial<LoteGuardado> = {}): LoteGuardado => {
+    const base = { codigo: '110-16-0010', ud: 'CN', descripcion: 'PARACETAMOL', lote: 'A', vence: '2028-01-31', cantidad: 100000, valor: 0, ...p };
+    return { ...base, id: idLote(base.codigo, base.lote, base.vence), estado: 'activo', cantidadIngresada: base.cantidad, fechaIngreso: '2026-10-10', ultimaVez: '2026-11-13', ...p };
+  };
+  const lotes = [
+    lote({ lote: 'VENCIDO', vence: '2026-11-01', cantidad: 5000 }),
+    lote({ lote: 'ALTA', vence: '2026-12-10', cantidad: 20000 }),
+    lote({ lote: 'LEJOS', vence: '2029-06-30', cantidad: 300 }),
+    lote({ lote: 'GEST', vence: '2026-12-01', estado: 'gestionado', gestion: { motivo: 'Consumido', fecha: '2026-11-15' } }),
+  ];
+  const ev = evaluarVencimientos({ lotes, consumos: new Map([['110-16-0010', 10]]), existencias: new Map(), hoy: '2026-11-20' });
+  const filas = [
+    ...ev.alertas.map((a) => ({ lote: a.lote, alerta: a })),
+    ...ev.lotes.filter((l) => l.estado === 'gestionado').map((l) => ({ lote: l, alerta: null })),
+  ];
+  const r = reporteVencimientos(filas, { filtro: 'Todos', hoy: '2026-11-20', ultimaCarga: '2026-11-13', resumen: ev.resumen, umbrales: UMBRALES_VENCIMIENTO_INICIALES }, emisor);
+
+  it('una fila por lote de la lista, con prioridad, días y existencia', () => {
+    expect(r.filas).toHaveLength(4);
+    const venc = r.filas.find((f) => f[2] === 'VENCIDO')!;
+    expect(venc[6]).toBe('Vencido');
+    expect(venc[4]).toBe(-19);
+    const alta = r.filas.find((f) => f[2] === 'ALTA')!;
+    expect(alta[6]).toBe('Alta');
+    expect(alta[4]).toBe(20);
+  });
+  it('muestra ≈ en lo proyectado y el excedente de A1', () => {
+    const alta = r.filas.find((f) => f[2] === 'ALTA')!;
+    expect(String(alta[5])).toMatch(/^≈ /);
+    expect(String(alta[8])).toMatch(/Proyectado desde el reporte del 13 nov 2026/);
+    expect(alta[7]).not.toBe('—'); // 200 CN con consumo 10/día no se agota en 20 días
+  });
+  it('un lote gestionado lleva su motivo y sin prioridad', () => {
+    const g = r.filas.find((f) => f[2] === 'GEST')!;
+    expect(g[6]).toBe('—');
+    expect(g[8]).toBe('Gestionado: Consumido');
+  });
+  it('lleva usuario, unidad, filtro, umbrales, resumen y nombre de archivo con la fecha', () => {
+    expect(r.usuario).toBe('Ana Pérez');
+    expect(r.detalle.join(' ')).toMatch(/Lista: Todos/);
+    expect(r.detalle.join(' ')).toMatch(/30 días/);
+    expect(r.detalle.join(' ')).toMatch(/90 días/);
+    expect(r.resumen[0]).toBe('Lotes en esta lista: 4');
+    expect(r.resumen.join(' ')).toMatch(/vencidos 1/);
+    expect(r.nombreArchivo).toBe('vencimientos_20261120');
+  });
+  it('sin lotes devuelve la tabla vacía', () => {
+    const vacio = reporteVencimientos([], { filtro: 'Urgentes', hoy: '2026-11-20', ultimaCarga: null, resumen: { vencidos: 0, alta: 0, media: 0, a1: 0, sinConsumo: 0 }, umbrales: UMBRALES_VENCIMIENTO_INICIALES }, emisor);
+    expect(vacio.filas).toEqual([]);
+    expect(vacio.detalle[1]).toBe('Sin carga del reporte de lotes');
+  });
+  it('se genera el PDF y el Excel', async () => {
+    expect(new TextDecoder().decode((await generarPdf(r)).slice(0, 4))).toBe('%PDF');
+    expect(new TextDecoder().decode((await generarExcel(r)).slice(0, 2))).toBe('PK');
+  });
+});
+

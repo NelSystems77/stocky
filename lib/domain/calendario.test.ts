@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  diasHabilesAlIngreso, diasHabilesEntre, esDiaLaborable, hoyCostaRica, proximoIngreso, segundoSabado,
+  diasHabilesAlIngreso, diasHabilesEntre, esDiaLaborable, hoyCostaRica, laborableDesde, nEsimoDiaSemana, proximoIngreso, segundoSabado, tercerJueves,
 } from './calendario';
 
 describe('segundoSabado', () => {
@@ -75,3 +75,26 @@ describe('describirRecurrencia', () => {
     expect(describirRecurrencia({ tipo: 'segundoSabado' })).toBe('Cada segundo sábado');
   });
 });
+
+describe('tercerJueves y nEsimoDiaSemana', () => {
+  it('tercer jueves de varios meses', () => {
+    expect(tercerJueves(2026, 11)).toBe('2026-11-19');
+    expect(tercerJueves(2026, 12)).toBe('2026-12-17');
+    expect(tercerJueves(2027, 1)).toBe('2027-01-21');
+    expect(tercerJueves(2026, 10)).toBe('2026-10-15'); // el 1 es jueves
+  });
+  it('n-ésimo día de la semana', () => {
+    expect(nEsimoDiaSemana(2026, 11, 4, 1)).toBe('2026-11-05');
+    expect(nEsimoDiaSemana(2026, 11, 6, 2)).toBe('2026-11-14');
+  });
+});
+
+describe('laborableDesde', () => {
+  it('la misma fecha si es laborable', () => expect(laborableDesde('2026-11-19')).toBe('2026-11-19'));
+  it('si no, el siguiente día laborable', () => {
+    expect(laborableDesde('2026-11-19', ['2026-11-19'])).toBe('2026-11-20');
+    expect(laborableDesde('2026-11-21')).toBe('2026-11-23'); // sábado que no es el segundo
+    expect(laborableDesde('2026-11-19', ['2026-11-19', '2026-11-20'])).toBe('2026-11-23');
+  });
+});
+

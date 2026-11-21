@@ -90,11 +90,32 @@ service cloud.firestore {
           && request.resource.data.fechaReporte is timestamp;
         allow update, delete: if accesoModulo(uid, 'inventario');
       }
+      // Detalle de cada cambio de una carga de lotes (lo que la persona revisó antes de guardar).
+      match /importaciones/{id}/cambios/{c} {
+        allow read: if accesoModulo(uid, 'inventario');
+        allow create, update: if accesoModulo(uid, 'inventario')
+          && request.resource.data.tipo in ['nuevo', 'salio', 'bajo', 'subio', 'vencimiento']
+          && request.resource.data.codigo is string
+          && request.resource.data.lote is string
+          && request.resource.data.vence.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+        allow delete: if accesoModulo(uid, 'inventario');
+      }
       match /existencias/{codigo} {
         allow read, write: if accesoModulo(uid, 'inventario');
       }
+      // Lotes con vencimiento (carga del reporte de lotes). Cantidad en unidades base; nunca se borran (queda `agotado`).
       match /lotes/{id} {
-        allow read, write: if accesoModulo(uid, 'inventario');
+        allow read, delete: if accesoModulo(uid, 'inventario');
+        allow create, update: if accesoModulo(uid, 'inventario')
+          && request.resource.data.codigo is string
+          && request.resource.data.codigo.size() > 0
+          && request.resource.data.lote is string
+          && request.resource.data.lote.size() > 0
+          && request.resource.data.lote.size() <= 60
+          && request.resource.data.vence.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.cantidad is number
+          && request.resource.data.cantidad >= 0
+          && request.resource.data.estado in ['activo', 'gestionado', 'vencido', 'agotado'];
       }
       match /consumos/{id} {
         allow read, write: if accesoModulo(uid, 'inventario');
@@ -124,7 +145,7 @@ service cloud.firestore {
           && request.resource.data.prioridad in ['alta', 'media', 'baja']
           && request.resource.data.activa is bool
           && request.resource.data.recurrencia is map
-          && request.resource.data.recurrencia.tipo in ['unica', 'diaria', 'diasSemana', 'quincenal', 'mensual', 'segundoSabado']
+          && request.resource.data.recurrencia.tipo in ['unica', 'diaria', 'diasSemana', 'quincenal', 'mensual', 'segundoSabado', 'tercerJueves', 'tercerJuevesMas15']
           && request.resource.data.desde.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       }
       // Una fila por ocurrencia atendida: id = `${tareaId}_${fechaOrigen}`.

@@ -7,6 +7,7 @@ import type { Periodo } from '@/lib/domain/periodos';
 import { seSolapa } from '@/lib/domain/periodos';
 import { estadoStock } from '@/lib/domain/stock';
 import type { FechaISO } from '@/lib/domain/types';
+import type { AlertaLote, LoteVista, ResumenVencimientos, UmbralesVencimiento } from '@/lib/domain/vencimientos';
 import type { DatosReporte } from './tipos';
 
 export interface Emisor {
@@ -93,3 +94,60 @@ export function reporteAgotados(
     nombreArchivo: `agotados_${sufijoArchivo(periodo.desde)}_${sufijoArchivo(periodo.hasta)}`,
   };
 }
+
+export interface FilaVencimiento {
+  lote: LoteVista;
+  /** `null` para lotes gestionados o sin alerta. */
+  alerta: AlertaLote | null;
+}
+
+const ETIQUETA_NIVEL = { vencido: 'Vencido', alta: 'Alta', media: 'Media' } as const;
+
+/**
+ * Lista de lotes y vencimientos tal como se ve en pantalla (la lista filtrada, de la más urgente a la menos): código,
+ * lote, vencimiento, días, existencia (con ≈ si es proyección), prioridad, excedente de A1 y nota.
+ */
+export function reporteVencimientos(
+  filas: readonly FilaVencimiento[],
+  p: { filtro: string; hoy: FechaISO; ultimaCarga: FechaISO | null; resumen: ResumenVencimientos; umbrales: UmbralesVencimiento },
+  e: Emisor,
+): DatosReporte {
+  const dias = (f: FilaVencimiento) => f.alerta?.diasParaVencer ?? Math.round((Date.parse(f.lote.vence) - Date.parse(p.hoy)) / 86_400_000);
+  const proyectados = filas.filter((f) => f.lote.proyectado).length;
+  return {
+    titulo: 'Vencimientos y lotes',
+    usuario: e.usuario,
+    unidad: e.unidad,
+    generadoEn: e.generadoEn,
+    detalle: [
+      `Lista: ${p.filtro}`,
+      p.ultimaCarga ? `Última carga del reporte de lotes: ${fechaCorta(p.ultimaCarga)}` : 'Sin carga del reporte de lotes',
+      `Prioridad alta: faltan ${p.umbrales.alta} días o menos, o no se consume a tiempo (A1) · Prioridad media: ${p.umbrales.media} días o menos`,
+    ],
+    columnas: ['Código', 'Descripción', 'Lote', 'Vence', 'Días', 'Existencia', 'Prioridad', 'Excedente (A1)', 'Nota'],
+    filas: filas.map((f) => [
+      f.lote.codigo,
+      f.lote.descripcion,
+      f.lote.lote,
+      fechaCorta(f.lote.vence),
+      dias(f),
+      `${f.lote.proyectado ? '≈ ' : ''}${formatearEnUD(f.lote.cantidad, f.lote.ud)}`,
+      f.alerta?.nivel ? ETIQUETA_NIVEL[f.alerta.nivel] : '—',
+      f.alerta?.a1 ? formatearEnUD(f.alerta.a1.excedente, f.lote.ud) : '—',
+      f.lote.estado === 'gestionado'
+        ? `Gestionado${f.lote.gestion ? `: ${f.lote.gestion.motivo}` : ''}`
+        : f.lote.proyectado
+          ? `Proyectado desde el reporte del ${fechaCorta(f.lote.ultimaVez)}`
+          : '',
+    ]),
+    columnasNumericas: [4],
+    resumen: [
+      `Lotes en esta lista: ${filas.length}`,
+      `En todos los lotes con existencia: vencidos ${p.resumen.vencidos} · prioridad alta ${p.resumen.alta} · media ${p.resumen.media} · con A1 ${p.resumen.a1}`,
+      ...(proyectados > 0 ? [`≈ = cantidad proyectada con el consumo diario promedio (${proyectados} lotes); el reporte de lotes la reemplaza por lo real.`] : []),
+      ...(p.resumen.sinConsumo > 0 ? [`${p.resumen.sinConsumo} lotes son de productos sin consumo cargado: solo se evaluó la fecha (A2).`] : []),
+    ],
+    nombreArchivo: `vencimientos_${sufijoArchivo(p.hoy)}`,
+  };
+}
+

@@ -10,7 +10,11 @@ export type Recurrencia =
   | { tipo: 'diasSemana'; dias: DiaSemana[] }
   | { tipo: 'quincenal'; dia: DiaSemana; ancla: FechaISO }
   | { tipo: 'mensual'; diaMes: number }
-  | { tipo: 'segundoSabado' };
+  | { tipo: 'segundoSabado' }
+  /** Tercer jueves del mes: carga del reporte de lotes y vencimientos (RF-1.8). Si no es laborable, pasa al siguiente día laborable. */
+  | { tipo: 'tercerJueves' }
+  /** 15 días después del tercer jueves (o el siguiente día laborable): carga de existencias para ajustar la proyección (RF-2.6). */
+  | { tipo: 'tercerJuevesMas15' };
 
 export interface CargaConsumo {
   /** Consumo del período en unidades base. */

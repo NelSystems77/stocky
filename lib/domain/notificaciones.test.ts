@@ -67,7 +67,7 @@ describe('planificarAvisos', () => {
   });
   it('respeta lo que la persona silenció', () => {
     const tareas = [t('x', { hora: '07:00' })];
-    const silenciado = { resumenManana: false, resumenMediodia: false, recordatorios: false, pedidosEnvios: false };
+    const silenciado = { resumenManana: false, resumenMediodia: false, recordatorios: false, pedidosEnvios: false, vencimientos: false };
     expect(planificarAvisos({ ...base, franja: '07:00', tareas, ajustes: silenciado })).toEqual([]);
   });
   it('ningún aviso fuera del calendario laboral', () => {
@@ -145,6 +145,43 @@ describe('avisos de pedidos y envíos', () => {
     // El jueves 19 ya no toca avisar de R (el lunes 23 es feriado); sí del envío a C, cuyo martes 24 cuenta un día hábil menos.
     const jueves = planificarAvisos({ ...hoyJueves, feriados: ['2026-11-23'] }).map((x) => x.titulo);
     expect(jueves).toEqual(['Preparar envío · Cascajal (C)']);
+  });
+});
+
+describe('aviso de vencimientos (lotes por vencer)', () => {
+  const base7 = { ...base, franja: '07:00', tareas: [] as Tarea[] };
+  const resumen = (p: Partial<{ vencidos: number; alta: number; media: number; a1: number; sinConsumo: number }> = {}) => ({ vencidos: 0, alta: 0, media: 0, a1: 0, sinConsumo: 0, ...p });
+  const titulos = (hoy: string, r: ReturnType<typeof resumen>, extra = {}) => planificarAvisos({ ...base7, hoy, vencimientos: r, ...extra }).map((a) => a.titulo);
+
+  it('con lotes vencidos avisa cada día laborable', () => {
+    expect(titulos('2026-11-17', resumen({ vencidos: 2, alta: 3 }))).toEqual(['Vencimientos · 2 lotes vencidos']); // martes
+    expect(titulos('2026-11-19', resumen({ vencidos: 1 }))).toEqual(['Vencimientos · 1 lote vencido']); // jueves
+    expect(planificarAvisos({ ...base7, hoy: '2026-11-17', vencimientos: resumen({ vencidos: 2, alta: 3 }) })[0]?.cuerpo).toBe('3 más de prioridad alta. Revisa y gestiona los lotes en Vencimientos.');
+  });
+  it('sin vencidos pero con prioridad alta avisa solo el primer día laborable de la semana', () => {
+    expect(titulos('2026-11-16', resumen({ alta: 4 }))).toEqual(['Vencimientos · 4 lotes de prioridad alta']); // lunes
+    expect(titulos('2026-11-17', resumen({ alta: 4 }))).toEqual([]); // martes
+    expect(titulos('2026-11-20', resumen({ alta: 4 }))).toEqual([]); // viernes
+  });
+  it('si el lunes es feriado, avisa el martes', () => {
+    expect(titulos('2026-11-16', resumen({ alta: 1 }), { feriados: ['2026-11-16'] })).toEqual([]);
+    expect(titulos('2026-11-17', resumen({ alta: 1 }), { feriados: ['2026-11-16'] })).toEqual(['Vencimientos · 1 lote de prioridad alta']);
+  });
+  it('solo prioridad media o nada: no avisa', () => {
+    expect(titulos('2026-11-16', resumen({ media: 20 }))).toEqual([]);
+    expect(titulos('2026-11-16', resumen())).toEqual([]);
+  });
+  it('solo a las 7:00, si no se silenció y en día laborable', () => {
+    const r = resumen({ vencidos: 1 });
+    expect(planificarAvisos({ ...base7, franja: '12:00', hoy: '2026-11-17', vencimientos: r })).toEqual([]);
+    expect(planificarAvisos({ ...base7, hoy: '2026-11-17', vencimientos: r, ajustes: { ...TODO, vencimientos: false } })).toEqual([]);
+    expect(planificarAvisos({ ...base7, hoy: '2026-11-15', vencimientos: r })).toEqual([]); // domingo
+  });
+  it('sin resumen (cuenta sin lotes) no avisa', () => {
+    expect(planificarAvisos({ ...base7, hoy: '2026-11-17' })).toEqual([]);
+  });
+  it('la clave es del día (no se repite en la misma franja)', () => {
+    expect(planificarAvisos({ ...base7, hoy: '2026-11-17', vencimientos: resumen({ vencidos: 1 }) })[0]?.clave).toBe('2026-11-17_vencimientos');
   });
 });
 

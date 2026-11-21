@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Search, Upload } from 'lucide-react';
+import { CalendarClock, Search, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { FilaProducto } from '@/components/inventario/FilaProducto';
@@ -77,6 +77,10 @@ export default function Inventario() {
 
   return (
     <Pantalla titulo="Inventario">
+      <Link href="/inventario/vencimientos/" className="-mt-2 inline-flex min-h-11 items-center gap-2 self-start rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
+        <CalendarClock aria-hidden className="size-4" />
+        Vencimientos y lotes
+      </Link>
       {lista === undefined && (
         <Card role="status" className="animate-pulse text-center text-sm text-text-muted">
           Cargando inventario…

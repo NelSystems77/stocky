@@ -10,6 +10,9 @@ import {
   type AjustesNotificaciones,
 } from './dominio/notificaciones.js';
 import type { Programado, Seguimiento } from './dominio/pedidosEnvios.js';
+import { normalizarMargen } from './dominio/riesgo.js';
+import { normalizarUmbralesVencimiento } from './dominio/vencimientos.js';
+import { evaluarCuenta } from './vencimientos.js';
 import type { Cumplimiento, Tarea } from './dominio/tareas.js';
 
 const Fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -22,6 +25,8 @@ export const TareaSchema = z.object({
     z.object({ tipo: z.literal('quincenal'), dia: z.number().int().min(0).max(6), ancla: Fecha }),
     z.object({ tipo: z.literal('mensual'), diaMes: z.number().int().min(1).max(31) }),
     z.object({ tipo: z.literal('segundoSabado') }),
+    z.object({ tipo: z.literal('tercerJueves') }),
+    z.object({ tipo: z.literal('tercerJuevesMas15') }),
   ]),
   hora: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable(),
   prioridad: z.enum(['alta', 'media', 'baja']),
@@ -44,6 +49,8 @@ const ProgramacionSchema = z.discriminatedUnion('tipo', [
   z.object({ tipo: z.literal('quincenal'), dia: z.number().int().min(0).max(6), ancla: Fecha }),
   z.object({ tipo: z.literal('mensual'), diaMes: z.number().int().min(1).max(31) }),
   z.object({ tipo: z.literal('segundoSabado') }),
+  z.object({ tipo: z.literal('tercerJueves') }),
+  z.object({ tipo: z.literal('tercerJuevesMas15') }),
   z.object({ tipo: z.literal('ultimoDiaSemana'), dia: z.number().int().min(0).max(6) }),
 ]);
 /** Pedido o envío programado; la clase la da la colección (`tiposPedido` = pedido, `puestos` = envío). */
@@ -89,7 +96,7 @@ export async function ejecutarTick(db: Firestore, enviar: Enviar, ahora: Date = 
     const tokens: string[] = Array.isArray(datos['tokensFCM']) ? datos['tokensFCM'].filter((t): t is string => typeof t === 'string') : [];
     if (tokens.length === 0) continue;
 
-    const ajustesGuardados = (datos['ajustes'] ?? {}) as { notificaciones?: Partial<AjustesNotificaciones>; feriados?: unknown };
+    const ajustesGuardados = (datos['ajustes'] ?? {}) as { notificaciones?: Partial<AjustesNotificaciones>; feriados?: unknown; umbrales?: { margenRiesgo?: unknown; vencimiento?: unknown } };
     const ajustes = { ...AJUSTES_NOTIFICACIONES_INICIALES, ...ajustesGuardados.notificaciones };
     const feriados = Array.isArray(ajustesGuardados.feriados) ? ajustesGuardados.feriados.filter((f): f is string => typeof f === 'string') : [];
 
@@ -129,7 +136,20 @@ export async function ejecutarTick(db: Firestore, enviar: Enviar, ahora: Date = 
       }
     }
 
-    for (const aviso of planificarAvisos({ tareas, cumplimientos, hoy, franja, ajustes, feriados, programados, seguimientos })) {
+    // Lotes por vencer: solo a las 7:00 y si la persona no lo silenció (calcula lo mismo que la pantalla de Vencimientos).
+    const vencimientos =
+      franja === HORA_RESUMEN_MANANA && ajustes.vencimientos
+        ? ((
+            await evaluarCuenta(db, u.id, {
+              hoy,
+              feriados,
+              margen: normalizarMargen(ajustesGuardados.umbrales?.margenRiesgo),
+              umbrales: normalizarUmbralesVencimiento(ajustesGuardados.umbrales?.vencimiento),
+            })
+          )?.resumen)
+        : undefined;
+
+    for (const aviso of planificarAvisos({ tareas, cumplimientos, hoy, franja, ajustes, feriados, programados, seguimientos, vencimientos })) {
       const marca = u.ref.collection('avisosEnviados').doc(aviso.clave);
       try {
         // `expiraEn` es el campo de la política TTL de Firestore (colección avisosEnviados).

@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle2, Plus, Undo2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { guardarTarea, sembrarTareas } from '@/lib/db/tareas';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { vistaHoy, type Ocurrencia, type Tarea } from '@/lib/domain/tareas';
-import { tareasSugeridas } from '@/lib/domain/tareasSugeridas';
+import { migrarTareasSugeridas, tareasSugeridas } from '@/lib/domain/tareasSugeridas';
 import { useAcciones } from '@/lib/tareas/useAcciones';
 import { useAgenda } from '@/lib/tareas/useAgenda';
 import { FilaTarea } from './FilaTarea';
@@ -30,6 +30,18 @@ export function SeccionTareasHoy() {
 
   const vista = useMemo(() => vistaHoy(tareas, cumplimientos, hoy, feriados), [tareas, cumplimientos, hoy, feriados]);
   const sugeridas = tareasSugeridas(unidad, hoy);
+
+  // Quien ya tenía sembrada la tarea semanal de «jueves» pasa al calendario de reportes del PRD (tercer jueves y +15 días),
+  // solo si no la había editado. Una sola vez por visita.
+  const migrada = useRef(false);
+  useEffect(() => {
+    if (!uid || cargando || migrada.current) return;
+    const cambios = migrarTareasSugeridas(tareas, unidad, hoy);
+    migrada.current = true;
+    if (cambios.length === 0) return;
+    void sembrarTareas(uid, cambios).catch(() => mostrar('No se pudieron actualizar las tareas de carga de reportes.', { tono: 'error' }));
+    mostrar('Las tareas de carga de reportes pasaron al tercer jueves del mes y 15 días después.', { tono: 'ok' });
+  }, [uid, cargando, tareas, unidad, hoy, mostrar]);
 
   function guardar(t: Tarea) {
     if (!uid) return;

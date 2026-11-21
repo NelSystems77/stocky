@@ -7,6 +7,7 @@ import type { NivelRiesgo } from './riesgo';
 import { estadoStock } from './stock';
 import { diasDesdeRegistro, ETIQUETA_ESTADO_TRASLADO, ETIQUETA_TIPO_TRASLADO, tramitesPendientes, trasladosPendientes, type RegistroTraslado } from './traslados';
 import type { FechaISO } from './types';
+import type { NivelVencimiento, ResumenVencimientos, UmbralesVencimiento } from './vencimientos';
 import { ordenarVencidos, totalesVencidos, vencidosDelMes, type RegistroVencido } from './vencidos';
 
 /** Modelos de Gemini en orden: el primero que responda. Dentro de la cuota gratuita (CLAUDE.md §9). */
@@ -39,6 +40,33 @@ export interface ProductoChango {
   riesgo?: { nivel: NivelRiesgo; cobertura: number | null; diasAlIngreso: number };
 }
 
+/** Lote con existencia y su alerta de vencimiento (cantidad vigente: proyectada si pasó tiempo desde la última carga). */
+export interface LoteChango {
+  codigo: string;
+  descripcion: string;
+  ud: string;
+  lote: string;
+  vence: FechaISO;
+  /** Unidades base. */
+  cantidad: number;
+  proyectado: boolean;
+  /** Días de calendario hasta vencer; negativo si ya venció. */
+  dias: number;
+  nivel: NivelVencimiento | null;
+  /** Unidades base que no se consumirán antes de vencer (A1). */
+  excedente?: number;
+}
+
+export interface VencimientosChango {
+  resumen: ResumenVencimientos;
+  umbrales: UmbralesVencimiento;
+  /** Fecha del último reporte de lotes y vencimientos. */
+  ultimaCarga: FechaISO | null;
+  lotes: readonly LoteChango[];
+  /** Ingresos (segundo sábado) desde la última carga que la proyección no suma. */
+  ingresosSinSumar: readonly FechaISO[];
+}
+
 export interface TareaChango {
   titulo: string;
   hora: string | null;
@@ -57,6 +85,8 @@ export interface DatosChango {
   preconteos: readonly RegistroPreconteo[];
   danados: readonly RegistroDanado[];
   vencidos: readonly RegistroVencido[];
+  /** Lotes y alertas de vencimiento; `undefined` si la cuenta no tiene lotes cargados. */
+  vencimientos?: VencimientosChango;
 }
 
 const MAX_LISTA = 25;
@@ -111,6 +141,40 @@ function seccion(titulo: string, lineas: readonly string[], total?: number): str
   if (lineas.length === 0) return '';
   const resto = total !== undefined && total > lineas.length ? `\n(+${total - lineas.length} más no listados)` : '';
   return `\n## ${titulo}\n${lineas.join('\n')}${resto}\n`;
+}
+
+const NIVEL_TEXTO: Record<NivelVencimiento, string> = { vencido: 'VENCIDO', alta: 'prioridad alta', media: 'prioridad media' };
+
+function lineaLote(l: LoteChango, enUD: (codigo: string, base: number) => string): string {
+  const cuando = l.dias < 0 ? `venció hace ${-l.dias} d.` : l.dias === 0 ? 'vence hoy' : `vence en ${l.dias} d.`;
+  const partes = [`${l.codigo} ${l.descripcion}`, `lote ${l.lote}`, `vence ${l.vence} (${cuando})`, `${l.proyectado ? '≈ ' : ''}${enUD(l.codigo, l.cantidad)}`];
+  if (l.nivel) partes.push(NIVEL_TEXTO[l.nivel]);
+  if (l.excedente !== undefined) partes.push(`sobran ≈ ${enUD(l.codigo, l.excedente)} que no se consumirán a tiempo`);
+  return `- ${partes.join(' · ')}`;
+}
+
+/** Sección de lotes y vencimientos (reglas A1/A2 del PRD): resumen, vencidos, prioridad alta y los lotes de los productos que nombra la pregunta. */
+function seccionesVencimientos(d: DatosChango, pregunta: string, enUD: (codigo: string, base: number) => string): string {
+  const v = d.vencimientos;
+  if (!v || v.lotes.length === 0) {
+    return '\n## Vencimientos (lotes)\nTodavía no hay reporte de lotes y vencimientos cargado: no tengo fechas de vencimiento por lote.\n';
+  }
+  const lote = (l: LoteChango) => lineaLote(l, enUD);
+  const vencidos = v.lotes.filter((l) => l.nivel === 'vencido');
+  const altas = v.lotes.filter((l) => l.nivel === 'alta');
+  const r = v.resumen;
+  let texto = '\n## Vencimientos (lotes)\n';
+  texto += `Último reporte de lotes y vencimientos: ${v.ultimaCarga ?? 'sin fecha'}. Lotes con existencia: ${v.lotes.length}.\n`;
+  texto += `Vencidos con existencia: ${r.vencidos} · prioridad alta: ${r.alta} · prioridad media: ${r.media} · no se consumirán a tiempo (A1): ${r.a1}.\n`;
+  texto += `Prioridad alta = faltan ${v.umbrales.alta} días o menos, o no se consume antes de vencer al ritmo de consumo; media = ${v.umbrales.media} días o menos. Las cantidades con ≈ son proyectadas desde ese reporte con el consumo diario promedio.\n`;
+  if (r.sinConsumo > 0) texto += `${r.sinConsumo} lotes son de productos sin consumo cargado: solo se evaluó la fecha.\n`;
+  if (v.ingresosSinSumar.length > 0) texto += `Aviso: hubo ingreso de mercadería (${v.ingresosSinSumar.join(', ')}) después del último reporte de lotes; esos lotes nuevos todavía no están cargados.\n`;
+  texto += seccion('Lotes vencidos con existencia', vencidos.slice(0, MAX_LISTA).map(lote), vencidos.length);
+  texto += seccion('Lotes de prioridad alta', altas.slice(0, MAX_LISTA).map(lote), altas.length);
+  const codigos = new Set(seleccionarProductos(pregunta, d.productos).map((p) => p.codigo));
+  const delProducto = v.lotes.filter((l) => codigos.has(l.codigo)).sort((a, b) => a.vence.localeCompare(b.vence));
+  texto += seccion('Lotes de los productos que menciona la pregunta', delProducto.slice(0, 15).map(lote), delProducto.length);
+  return texto;
 }
 
 /**
@@ -186,8 +250,9 @@ export function armarContexto(d: DatosChango, pregunta = ''): string {
       vencidosMes.length,
     );
   }
+  texto += seccionesVencimientos(d, pregunta, enUD);
   texto +=
-    '\n## Datos que Stocky todavía NO tiene\nUbicaciones de productos, lotes y fechas de vencimiento por lote, agenda de pedidos y envíos a puestos. Si preguntan por eso, di que aún no está disponible.\n';
+    '\n## Datos que Stocky todavía NO tiene\nUbicaciones de productos y agenda de pedidos y envíos a puestos. Si preguntan por eso, di que aún no está disponible.\n';
 
   return texto.length > MAX_CONTEXTO ? `${texto.slice(0, MAX_CONTEXTO)}\n(…contexto recortado)` : texto;
 }

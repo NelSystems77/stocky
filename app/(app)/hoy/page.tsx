@@ -19,6 +19,8 @@ import { trasladosPendientes, type RegistroTraslado } from '@/lib/domain/traslad
 import { estadoStock } from '@/lib/domain/stock';
 import { contarPendientes, vistaPedidosEnvios } from '@/lib/domain/pedidosEnvios';
 import { usePedidosEnvios } from '@/lib/pedidos/usePedidosEnvios';
+import { contarUrgentes } from '@/lib/domain/vencimientos';
+import { useVencimientos } from '@/lib/vencimientos/useVencimientos';
 import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 
 function saludo(ahora: Date): string {
@@ -33,6 +35,7 @@ function saludo(ahora: Date): string {
 const ETIQUETA_TIPO = {
   existenciasDespacho: 'Existencias de despacho',
   productosEnDespacho: 'Productos en despacho',
+  lotesVencimientos: 'Lotes y vencimientos',
 } as const;
 
 export default function Hoy() {
@@ -57,6 +60,10 @@ export default function Hoy() {
     if (!pe.aplica || pe.cargando || pe.programados.length === 0) return null;
     return contarPendientes(vistaPedidosEnvios(pe.programados, pe.seguimientos, hoyCostaRica(), pe.feriados));
   }, [pe.aplica, pe.cargando, pe.programados, pe.seguimientos, pe.feriados]);
+
+  const venc = useVencimientos();
+  // `null` mientras carga o si aún no hay lotes cargados.
+  const vencimientos = venc.cargando || venc.lotes.length === 0 ? null : contarUrgentes(venc.resumen);
 
   const { riesgos, hayConsumos } = useRiesgo(existencias);
 
@@ -94,7 +101,7 @@ export default function Hoy() {
       <section aria-label="Alertas" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <ChipAlerta href="/inventario/agotados/" etiqueta="Agotados" valor={conteos.agotados} tono="critical" icono={PackageX} />
         <ChipAlerta href="/inventario/" etiqueta="Bajos" valor={conteos.bajos} tono="low" icono={PackageMinus} />
-        <ChipAlerta href="/inventario/" etiqueta="Vencimientos" valor={null} tono="critical" icono={Clock} />
+        <ChipAlerta href="/inventario/vencimientos/" etiqueta="Vencimientos" valor={vencimientos} tono="critical" icono={Clock} />
         <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={enRiesgo} tono="warning" icono={AlertTriangle} />
         {es771 && (
           <ChipAlerta href="/registros/traslados/" etiqueta="Traslados pendientes" valor={traslados === undefined ? null : trasladosPendientes(traslados).length} tono="info" icono={ArrowRightLeft} />
@@ -122,7 +129,7 @@ export default function Hoy() {
           <div>
             <p className="font-semibold">Último reporte: {ETIQUETA_TIPO[ultima.tipoReporte]}</p>
             <p className="text-text-muted">
-              {format(ultima.fechaReporte.toDate(), "d 'de' MMMM yyyy", { locale: es })} · {ultima.filas} productos
+              {format(ultima.fechaReporte.toDate(), "d 'de' MMMM yyyy", { locale: es })} · {ultima.filas} {ultima.tipoReporte === 'lotesVencimientos' ? 'lotes' : 'productos'}
             </p>
           </div>
           <Link href="/importar/" className="inline-flex min-h-11 items-center rounded-2xl bg-surface-2 px-4 font-semibold">
