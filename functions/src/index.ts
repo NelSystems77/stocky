@@ -2,13 +2,12 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import { defineSecret, defineString } from 'firebase-functions/params';
+import { defineSecret } from 'firebase-functions/params';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { z } from 'zod';
 import { PeticionChango, preguntarAChango } from './chango.js';
-import { MODELOS_CHANGO } from './dominio/chango.js';
 import { ejecutarTick, type Enviar } from './tick.js';
 
 setGlobalOptions({ region: 'us-central1', maxInstances: 5 });
@@ -161,13 +160,6 @@ export const tickNotificaciones = onSchedule(
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 /**
- * Modelos de Gemini separados por coma, en orden de preferencia. Por defecto, la cascada de `MODELOS_CHANGO`
- * (un valor por defecto vacío haría fallar el despliegue no interactivo: Firebase lo trata como «sin valor»).
- * Permite cambiar de modelo sin tocar código si Google mueve los nombres o las cuotas gratuitas (ver `docs/despliegue.md`).
- */
-const CHANGO_MODELOS = defineString('CHANGO_MODELOS', { default: MODELOS_CHANGO.join(',') });
-
-/**
  * Chango IA: consulta, analiza y sugiere con los datos de quien pregunta. No ejecuta acciones.
  * El 771 y el superadmin siempre pueden; el 772 solo si el 771 le habilitó el módulo `chango`.
  */
@@ -189,7 +181,7 @@ export const changoPreguntar = onCall({ secrets: [GEMINI_API_KEY], timeoutSecond
   }
 
   return preguntarAChango(
-    { db, clave: GEMINI_API_KEY.value(), modelos: CHANGO_MODELOS.value().split(',').map((m) => m.trim()).filter((m) => m !== ''), fetcher: (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(25_000) }) },
+    { db, clave: GEMINI_API_KEY.value(), fetcher: (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(25_000) }) },
     { uid: req.auth.uid, unidad: rol === 'superadmin' ? '771' : unidad, modulos },
     parsed.data,
   );
