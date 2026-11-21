@@ -378,3 +378,19 @@ La persona usuaria fijó el orden de prioridad y el conteo físico quedó primer
 - **Recordatorio de entregas sin recibir (resto del punto 6):** **solo un chip en Hoy** («Entregas sin recibir», con la antigüedad de la más vieja), **sin aviso push** (decisión de la persona usuaria); solo 771. Lleva a Preconteo.
 - **El punto 5 (resumen mensual automático) quedó sin número**, pendiente.
 - **Pruebas:** selector (detección de los tres reportes, elección correcta, elección distinta, no reconocido) edición (ida y vuelta de las cantidades, estado del traslado al cambiar el tipo, el trámite no se toca) y recepción de traslados (lo que no se anota llega completo, diferencia con signo, negativos, totales con lo realmente recibido, edición de una recepción cerrada) más el resumen del chip de entregas sin recibir. **Pantallas sin probar en el celular.**
+
+## 2026-11-21 · Pedido al ALDI (fuera del PRD): propuesta de reposición
+
+La persona usuaria pidió crear pedidos al ALDI (el almacén que abastece al 771) con la cuota, la existencia y un factor, cada mes o cada tantos días, para **reponer la totalidad de las existencias del 771**. **Cambia una regla del proyecto:** `CLAUDE.md` §1 decía que Stocky «no calcula cantidades de pedido». Se actualizó: es la **única excepción**, y lo que se calcula es una **propuesta** que la persona revisa y ajusta; Stocky no escribe en SIFA ni en SAP.
+
+- **Fórmula:** `objetivo = cuota × factor × (días ÷ 30)` y `a pedir = objetivo − existencia`, **redondeado hacia arriba a la UD entera**; si no es positivo, no se pide (nunca negativo). Ej.: cuota 100 CN, factor 1.5, existencia 40 CN → 110 CN.
+- **Factor:** uno por pedido (no por producto): 1.25, 1.5, 2 u otro número mayor que 0 (hasta 10).
+- **Período:** la cuota de SIFA se entiende **mensual**; mensual (30 días) usa la cuota completa y, p. ej., 15 días usa la mitad. Se admite cualquier entero de 1 a 90 días.
+- **Qué productos entran:** solo los que tienen **cuota > 0 y existencia en el reporte** y algo que reponer. Se informa cuántos se omitieron (sin cuota, sin existencia en el reporte, ya cubiertos). Las líneas en 0 no aparecen.
+- **Ajustes a mano:** cada cantidad se puede cambiar (entero; 0 saca la línea). Se conserva lo sugerido para saber cuánto cambió; cambiar el factor o el período descarta los ajustes.
+- **Historial:** «Guardar pedido» deja una foto en `usuarios/{uid}/pedidosAldi` (fecha, factor, días, fecha del reporte de SIFA y líneas); no se edita, solo se exporta o se borra (con Deshacer). Reglas: solo el 771 y el superadmin (la 772 tiene `inventario` de base pero no pide al ALDI); verificado contra el emulador.
+- **Exportar:** PDF y Excel con Código, Descripción, UD, Cuota, Existencia, Objetivo y A pedir (en la UD del producto), encabezado con período, factor y fecha del reporte, y el aviso de que es una propuesta.
+- **Periodicidad:** el período define cuánto cubre el pedido. Para que Stocky lo recuerde cada mes o cada tantos días se usa la agenda de pedidos que ya existe (un tipo de pedido «ALDI» con su periodicidad); no se duplicó. Queda anotado como posible mejora enlazarlo directamente.
+- **Pendiente (anotado):** factor por producto, descontar lo que ya viene en camino, y que Chango conozca los pedidos.
+- **Pruebas:** fórmula (ejemplo, factores, 15 días, existencia sobre el objetivo, redondeo hacia arriba, factor 1), alcance y omitidos, ajustes (válidos, 0, inválidos), parámetros y el reporte (columnas, UD, resumen, PDF y Excel válidos). **La pantalla no se probó en el celular.**
+
