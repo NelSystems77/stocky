@@ -4,6 +4,7 @@ import {
   clasificarRespuesta,
   construirPeticionGemini,
   consultarGemini,
+  detalleError,
   extraerTexto,
   limitarHistorial,
   limpiarPregunta,
@@ -211,6 +212,27 @@ describe('consultarGemini', () => {
     }, 'k', peticion);
     expect(r).toEqual({ estado: 'error' });
     expect(n).toBe(1);
+  });
+  it('registra qué pasó con cada modelo, con el motivo que da Google y sin la clave', async () => {
+    const intentos: unknown[] = [];
+    let n = 0;
+    await consultarGemini(
+      async () => (n++ === 0 ? falla(429, { error: { status: 'RESOURCE_EXHAUSTED', message: 'Quota exceeded for metric' } }) : ok('bien')),
+      'SECRETA',
+      peticion,
+      MODELOS_CHANGO,
+      (i) => intentos.push(i),
+    );
+    expect(intentos).toEqual([
+      { modelo: MODELOS_CHANGO[0], status: 429, resultado: 'cuota', detalle: 'RESOURCE_EXHAUSTED: Quota exceeded for metric' },
+      { modelo: MODELOS_CHANGO[1], status: 200, resultado: 'ok' },
+    ]);
+    expect(JSON.stringify(intentos)).not.toContain('SECRETA');
+  });
+  it('detalleError: recorta y devuelve undefined si no hay error', () => {
+    expect(detalleError({ error: { status: 'NOT_FOUND', message: 'x'.repeat(500) } })?.length).toBe(300);
+    expect(detalleError({})).toBeUndefined();
+    expect(detalleError(null)).toBeUndefined();
   });
   it('una respuesta vacía o bloqueada pasa al siguiente modelo', async () => {
     let n = 0;

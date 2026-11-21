@@ -11,7 +11,7 @@ import type { NivelVencimiento, ResumenVencimientos, UmbralesVencimiento } from 
 import { ordenarVencidos, totalesVencidos, vencidosDelMes, type RegistroVencido } from './vencidos';
 
 /** Modelos de Gemini en orden: el primero que responda. Dentro de la cuota gratuita (CLAUDE.md §9). */
-export const MODELOS_CHANGO = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite'] as const;
+export const MODELOS_CHANGO = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite'] as const;
 
 /** Preguntas por usuario y día: protege la cuota gratuita compartida (una sola API key). */
 export const LIMITE_DIARIO_CHANGO = 40;
@@ -315,6 +315,13 @@ export function clasificarRespuesta(status: number, cuerpo: unknown): ResultadoL
   return 'error';
 }
 
+/** Estado y mensaje del error de Google, recortados; `undefined` si el cuerpo no trae uno. */
+export function detalleError(cuerpo: unknown): string | undefined {
+  const e = typeof cuerpo === 'object' && cuerpo !== null && 'error' in cuerpo ? (cuerpo as { error?: { status?: unknown; message?: unknown } }).error : undefined;
+  const partes = [e?.status, e?.message].filter((x): x is string => typeof x === 'string' && x !== '');
+  return partes.length === 0 ? undefined : partes.join(': ').slice(0, 300);
+}
+
 /** Texto de la respuesta de Gemini, o `null` si vino vacía o bloqueada. */
 export function extraerTexto(cuerpo: unknown): string | null {
   const c = (cuerpo as { candidates?: { content?: { parts?: { text?: unknown }[] } }[] } | null)?.candidates?.[0];
@@ -329,6 +336,16 @@ export interface RespuestaHttp {
 /** Lo mínimo de `fetch` que se necesita; se inyecta para poder probar sin red. */
 export type Fetcher = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }) => Promise<RespuestaHttp>;
 
+/** Lo que pasó con un modelo: sirve para dejar rastro en el registro de la Function (nunca incluye la clave ni los datos de la persona). */
+export interface IntentoGemini {
+  modelo: string;
+  /** Código HTTP, o 0 si no hubo respuesta (sin red o tiempo agotado). */
+  status: number;
+  resultado: ResultadoLlamada | 'vacio' | 'sin-respuesta';
+  /** Estado y mensaje del error que devuelve Google (p. ej. `RESOURCE_EXHAUSTED`), recortado. */
+  detalle?: string;
+}
+
 export type ResultadoConsulta = { estado: 'ok'; texto: string; modelo: string } | { estado: 'sin-cuota' } | { estado: 'error' };
 
 const URL_GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -338,7 +355,7 @@ const URL_GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models';
  * Si ninguno responde y al menos uno fue por cuota → `sin-cuota` («Chango vuelve mañana»). Un error de petición o de clave
  * (400/403) no se reintenta con otro modelo. La API key viaja solo en un encabezado, nunca en la URL.
  */
-export async function consultarGemini(fetcher: Fetcher, clave: string, peticion: PeticionGemini, modelos: readonly string[] = MODELOS_CHANGO): Promise<ResultadoConsulta> {
+export async function consultarGemini(fetcher: Fetcher, clave: string, peticion: PeticionGemini, modelos: readonly string[] = MODELOS_CHANGO, registrar?: (intento: IntentoGemini) => void): Promise<ResultadoConsulta> {
   let huboCuota = false;
   for (const modelo of modelos) {
     let status = 0;
@@ -352,14 +369,17 @@ export async function consultarGemini(fetcher: Fetcher, clave: string, peticion:
       status = r.status;
       cuerpo = await r.json().catch(() => null);
     } catch {
+      registrar?.({ modelo, status: 0, resultado: 'sin-respuesta' });
       continue; // sin red o tiempo agotado: siguiente modelo
     }
     const clase = clasificarRespuesta(status, cuerpo);
     if (clase === 'ok') {
       const texto = extraerTexto(cuerpo);
+      registrar?.({ modelo, status, resultado: texto === null ? 'vacio' : 'ok' });
       if (texto !== null) return { estado: 'ok', texto, modelo };
       continue;
     }
+    registrar?.({ modelo, status, resultado: clase, detalle: detalleError(cuerpo) });
     if (clase === 'cuota') huboCuota = true;
     else if (clase === 'error') return { estado: 'error' };
   }

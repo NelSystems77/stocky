@@ -1,4 +1,5 @@
 import { FieldValue, Timestamp, type DocumentData, type Firestore } from 'firebase-admin/firestore';
+import { logger } from 'firebase-functions/v2';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { z } from 'zod';
 import type { RegistroAgotado } from './dominio/agotados.js';
@@ -184,6 +185,8 @@ export interface Dependencias {
   db: Firestore;
   fetcher: Fetcher;
   clave: string;
+  /** Modelos en orden de preferencia; si falta, la cascada por defecto. */
+  modelos?: readonly string[];
   ahora?: Date;
 }
 
@@ -202,7 +205,9 @@ export async function preguntarAChango(
 
   const datos = await cargarDatos(dep.db, quien.uid, quien.unidad, quien.modulos, hoy);
   const historial: TurnoChango[] = limitarHistorial(entrada.historial);
-  const r = await consultarGemini(dep.fetcher, dep.clave, construirPeticionGemini(armarContexto(datos, pregunta), historial, pregunta));
+  const r = await consultarGemini(dep.fetcher, dep.clave, construirPeticionGemini(armarContexto(datos, pregunta), historial, pregunta), dep.modelos?.length ? dep.modelos : undefined, (i) =>
+    logger.info('chango: intento con Gemini', i),
+  );
 
   if (r.estado === 'sin-cuota') return { estado: 'sin-cuota', respuesta: MENSAJE_SIN_CUOTA };
   if (r.estado === 'error') return { estado: 'error', respuesta: 'Chango no pudo responder ahora. Inténtalo de nuevo en unos minutos.' };
