@@ -37,6 +37,13 @@ export function crearPreconteo(uid: string, e: EntregaValida): Promise<void> {
   return registrarEscritura(setDoc(doc(firestore(), `${coleccion(uid)}/${id}`), { ...e, recibida: null, creadoEn: serverTimestamp() }));
 }
 
+/** Corrige una entrega ya guardada. Lo recibido (`recibida`) no se toca. */
+export function actualizarPreconteo(uid: string, id: string, e: EntregaValida): Promise<void> {
+  return registrarEscritura(
+    updateDoc(doc(firestore(), `${coleccion(uid)}/${id}`), { fecha: e.fecha, codigo: e.codigo, cantidad: e.cantidad, presentacion: e.presentacion, notas: e.notas }),
+  );
+}
+
 /** Restaura un registro borrado (Deshacer) con el mismo id. */
 export function restaurarPreconteo(uid: string, r: RegistroPreconteo): Promise<void> {
   const { id, ...datos } = r;

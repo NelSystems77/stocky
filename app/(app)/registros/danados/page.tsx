@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Image as IconoFoto, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Image as IconoFoto, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { adjuntarFoto, borrarDanado, crearDanado, leerFoto, restaurarDanado, suscribirDanados } from '@/lib/db/danados';
+import { actualizarDanado, adjuntarFoto, borrarDanado, crearDanado, leerFoto, restaurarDanado, suscribirDanados } from '@/lib/db/danados';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import {
@@ -35,6 +35,7 @@ export default function Danados() {
   const [registros, setRegistros] = useState<RegistroDanado[] | undefined>(undefined);
   const [existencias, setExistencias] = useState<Existencia[]>([]);
   const [formulario, setFormulario] = useState(false);
+  const [editando, setEditando] = useState<RegistroDanado | null>(null);
   const [mes, setMes] = useState(() => hoyCostaRica().slice(0, 7));
   const mesActual = hoyCostaRica().slice(0, 7);
 
@@ -50,12 +51,8 @@ export default function Danados() {
 
   if (!uid) return null;
 
-  function guardar(entrada: EntradaDanado, foto: File | null) {
+  function subirFoto(id: string, foto: File) {
     if (!uid) return;
-    const { id, escritura } = crearDanado(uid, entrada);
-    void escritura.catch(() => mostrar('No se pudo guardar el dañado.', { tono: 'error' }));
-    mostrar('Dañado registrado.', { tono: 'ok' });
-    if (!foto) return;
     if (!navigator.onLine) {
       mostrar('Dañado guardado. La foto necesita conexión: agrégala cuando vuelva la red.', { tono: 'info' });
       return;
@@ -67,6 +64,24 @@ export default function Danados() {
         mostrar('El dañado se guardó, pero la foto no se pudo subir.', { tono: 'error' });
       }
     })();
+  }
+
+  function guardar(entrada: EntradaDanado, foto: File | null) {
+    if (!uid) return;
+    if (editando) {
+      const previo = editando;
+      void actualizarDanado(uid, previo.id, entrada).catch(() => mostrar('No se pudo guardar el cambio.', { tono: 'error' }));
+      mostrar('Dañado actualizado.', {
+        tono: 'ok',
+        accion: { etiqueta: 'Deshacer', alPulsar: () => void restaurarDanado(uid, previo).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
+      });
+      if (foto) subirFoto(previo.id, foto);
+      return;
+    }
+    const { id, escritura } = crearDanado(uid, entrada);
+    void escritura.catch(() => mostrar('No se pudo guardar el dañado.', { tono: 'error' }));
+    mostrar('Dañado registrado.', { tono: 'ok' });
+    if (foto) subirFoto(id, foto);
   }
 
   function borrar(r: RegistroDanado) {
@@ -130,7 +145,7 @@ export default function Danados() {
           ) : (
             <ul className="flex flex-col gap-2">
               {delMes.map((r) => (
-                <FilaDanado key={r.id} r={r} nombre={descripcion(r.codigo)} cantidad={cantidad(r)} alBorrar={() => borrar(r)} />
+                <FilaDanado key={r.id} r={r} nombre={descripcion(r.codigo)} cantidad={cantidad(r)} alEditar={() => setEditando(r)} alBorrar={() => borrar(r)} />
               ))}
             </ul>
           )}
@@ -138,12 +153,22 @@ export default function Danados() {
         </>
       )}
 
-      <FormularioDanado abierta={formulario} alCerrar={() => setFormulario(false)} existencias={existencias} alGuardar={guardar} />
+      <FormularioDanado
+        key={editando?.id ?? 'nuevo'}
+        abierta={formulario || editando !== null}
+        alCerrar={() => {
+          setFormulario(false);
+          setEditando(null);
+        }}
+        existencias={existencias}
+        alGuardar={guardar}
+        inicial={editando ?? undefined}
+      />
     </Pantalla>
   );
 }
 
-function FilaDanado({ r, nombre, cantidad, alBorrar }: { r: RegistroDanado; nombre: string; cantidad: string; alBorrar: () => void }) {
+function FilaDanado({ r, nombre, cantidad, alEditar, alBorrar }: { r: RegistroDanado; nombre: string; cantidad: string; alEditar: () => void; alBorrar: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   const [falla, setFalla] = useState(false);
@@ -172,9 +197,14 @@ function FilaDanado({ r, nombre, cantidad, alBorrar }: { r: RegistroDanado; nomb
           <span className="block font-mono text-xs text-text-muted">{r.codigo}</span>
           <span className="block text-sm">{nombre}</span>
         </span>
-        <button type="button" aria-label={`Borrar dañado ${r.codigo}`} onClick={alBorrar} className="grid size-11 shrink-0 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
-          <Trash2 aria-hidden className="size-4" />
-        </button>
+        <div className="flex shrink-0">
+          <button type="button" aria-label={`Editar dañado ${r.codigo}`} onClick={alEditar} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
+            <Pencil aria-hidden className="size-4" />
+          </button>
+          <button type="button" aria-label={`Borrar dañado ${r.codigo}`} onClick={alBorrar} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
+            <Trash2 aria-hidden className="size-4" />
+          </button>
+        </div>
       </div>
       <p className="text-xs text-text-muted">
         {fecha(r.fecha)} · <span className="font-semibold text-text">{cantidad}</span> · {ETIQUETA_MOTIVO[r.motivo]}

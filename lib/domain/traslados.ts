@@ -1,6 +1,6 @@
 import { esCodigoValido, normalizarCodigo } from './codigos';
 import type { FechaISO } from './types';
-import { aUnidadesBase, TABLA_UD_INICIAL, type TablaUD } from './unidades';
+import { aUnidadesBase, deUnidadesBase, normalizarUD, TABLA_UD_INICIAL, type TablaUD } from './unidades';
 
 export type TipoTraslado = 'envio' | 'recepcion';
 export type EstadoTraslado = 'pendiente' | 'recibido' | 'enviado';
@@ -14,8 +14,10 @@ export const ETIQUETA_ESTADO_TRASLADO: Record<EstadoTraslado, string> = {
 
 export interface ItemTraslado {
   codigo: string;
-  /** Unidades base. */
+  /** Unidades base: lo que dice la orden (lo que se esperaba recibir o lo que se envía). */
   cantidad: number;
+  /** Solo recepciones: lo que realmente llegó (unidades base). Sin este dato se toma como llegado completo. */
+  recibida?: number;
 }
 
 /**
@@ -150,16 +152,20 @@ export interface TotalesTraslados {
   pendientes: number;
   /** Cerrados con SAP o SIFA sin marcar. */
   tramitePendiente: number;
-  /** Unidades base de todos los productos de los traslados enviados / recibidos. */
+  /** Unidades base de todos los productos de los traslados enviados / de lo que realmente se recibió. */
   unidadesEnviadas: number;
   unidadesRecibidas: number;
+  /** Recepciones en las que llegó algo distinto de lo que decía la orden. */
+  conDiferencia: number;
 }
 
 /** Totales para el resumen mensual (RF-9.x): enviados, recibidos y pendientes con su orden SAP en el detalle. */
 export function totalesTraslados(registros: readonly RegistroTraslado[]): TotalesTraslados {
-  const t: TotalesTraslados = { total: registros.length, enviados: 0, recibidos: 0, pendientes: 0, tramitePendiente: 0, unidadesEnviadas: 0, unidadesRecibidas: 0 };
+  const t: TotalesTraslados = { total: registros.length, enviados: 0, recibidos: 0, pendientes: 0, tramitePendiente: 0, unidadesEnviadas: 0, unidadesRecibidas: 0, conDiferencia: 0 };
   for (const r of registros) {
-    const unidades = r.items.reduce((s, i) => s + i.cantidad, 0);
+    // De una recepción cuenta lo que realmente llegó; sin ese dato, lo que decía la orden.
+    const unidades = r.items.reduce((s, i) => s + (r.estado === 'recibido' ? (i.recibida ?? i.cantidad) : i.cantidad), 0);
+    if (tieneDiferencia(r)) t.conDiferencia += 1;
     if (r.estado === 'enviado') {
       t.enviados += 1;
       t.unidadesEnviadas = redondear(t.unidadesEnviadas + unidades);
@@ -170,4 +176,73 @@ export function totalesTraslados(registros: readonly RegistroTraslado[]): Totale
     if (!esPendiente(r) && !tramiteCompleto(r)) t.tramitePendiente += 1;
   }
   return t;
+}
+
+/**
+ * Un traslado ya guardado como lo escribió la persona, para editarlo: cada cantidad vuelve a la UD del producto
+ * (`udDe` da la UD según el último reporte; sin ella queda en unidades sueltas). Es la inversa de `validarTraslado`.
+ */
+export function entradaDesdeTraslado(
+  t: Pick<RegistroTraslado, 'fecha' | 'ordenSAP' | 'tipo' | 'unidad' | 'items' | 'notas'>,
+  udDe: (codigo: string) => string | undefined,
+  tabla: TablaUD = TABLA_UD_INICIAL,
+): EntradaTraslado {
+  return {
+    fecha: t.fecha,
+    ordenSAP: t.ordenSAP,
+    tipo: t.tipo,
+    unidad: t.unidad,
+    items: t.items.map((i) => {
+      const ud = normalizarUD(udDe(i.codigo) ?? 'UN');
+      return { codigo: i.codigo, ud, cantidad: deUnidadesBase(i.cantidad, ud, tabla) };
+    }),
+    notas: t.notas,
+  };
+}
+
+/**
+ * Campos que se escriben al editar un traslado. El trámite SAP/SIFA no se toca. Si cambió el tipo y el estado ya no
+ * corresponde (una recepción no está «enviada»), vuelve a pendiente; si no, conserva su estado y su fecha de cierre.
+ */
+export function camposEditadosTraslado(
+  actual: Pick<RegistroTraslado, 'estado' | 'fechaCierre' | 'items'>,
+  nuevo: TrasladoValido,
+): TrasladoValido & { estado: EstadoTraslado; fechaCierre: FechaISO | null } {
+  const conserva = estadosValidos(nuevo.tipo).includes(actual.estado);
+  // Lo que ya se anotó como recibido de cada producto se conserva mientras la recepción siga cerrada.
+  const recibidas = new Map(actual.items.flatMap((i) => (i.recibida === undefined ? [] : [[i.codigo, i.recibida] as const])));
+  const items = nuevo.items.map((i) => {
+    const r = conserva && actual.estado === 'recibido' ? recibidas.get(i.codigo) : undefined;
+    return r === undefined ? i : { ...i, recibida: r };
+  });
+  return { ...nuevo, items, estado: conserva ? actual.estado : 'pendiente', fechaCierre: conserva ? actual.fechaCierre : null };
+}
+
+/** Lo que llegó − lo que decía la orden (unidades base; negativo si falta). `null` si aún no se anotó lo recibido. */
+export function diferenciaItem(i: ItemTraslado): number | null {
+  return i.recibida === undefined ? null : redondear(i.recibida - i.cantidad);
+}
+
+/** Recepción cerrada en la que algún producto llegó distinto de lo que decía la orden. */
+export function tieneDiferencia(t: Pick<RegistroTraslado, 'estado' | 'items'>): boolean {
+  return t.estado === 'recibido' && t.items.some((i) => (diferenciaItem(i) ?? 0) !== 0);
+}
+
+/**
+ * Anota lo que llegó de cada producto al cerrar una recepción. `recibidas` va por código en unidades base; un producto
+ * que no aparece se toma como llegado completo. Los negativos no valen.
+ */
+export function aplicarRecepcion(items: readonly ItemTraslado[], recibidas: ReadonlyMap<string, number>): Resultado<ItemTraslado[]> {
+  const resultado: ItemTraslado[] = [];
+  for (const i of items) {
+    const r = recibidas.get(i.codigo) ?? i.cantidad;
+    if (!Number.isFinite(r) || r < 0) return { ok: false, error: `La cantidad recibida de ${i.codigo} no puede ser negativa.` };
+    resultado.push({ codigo: i.codigo, cantidad: i.cantidad, recibida: redondear(r) });
+  }
+  return { ok: true, valor: resultado };
+}
+
+/** Quita lo anotado como recibido (al deshacer la recepción). */
+export function quitarRecepcion(items: readonly ItemTraslado[]): ItemTraslado[] {
+  return items.map(({ codigo, cantidad }) => ({ codigo, cantidad }));
 }

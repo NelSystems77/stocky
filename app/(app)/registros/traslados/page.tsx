@@ -2,11 +2,12 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { FormularioTraslado } from '@/components/registros/FormularioTraslado';
+import { HojaRecepcionTraslado } from '@/components/registros/HojaRecepcionTraslado';
 import { SelectorMes } from '@/components/registros/SelectorMes';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,25 +15,31 @@ import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import {
+  actualizarTraslado,
   borrarTraslado,
   cerrarTrasladoDb,
   crearTraslado,
   marcarTramite,
   reabrirTraslado,
+  recibirTraslado,
   restaurarTraslado,
   suscribirTraslados,
 } from '@/lib/db/traslados';
 import { hoyCostaRica } from '@/lib/domain/calendario';
+import { formatearDiferencia } from '@/lib/domain/conteo';
 import { formatearEnUD, formatearNumero } from '@/lib/domain/formato';
 import {
   diasDesdeRegistro,
+  diferenciaItem,
   ETIQUETA_ESTADO_TRASLADO,
   ETIQUETA_TIPO_TRASLADO,
   ordenarTraslados,
+  quitarRecepcion,
   totalesTraslados,
   tramiteCompleto,
   trasladosDelMes,
   trasladosPendientes,
+  type ItemTraslado,
   type RegistroTraslado,
   type TrasladoValido,
 } from '@/lib/domain/traslados';
@@ -49,6 +56,8 @@ export default function Traslados() {
   const [registros, setRegistros] = useState<RegistroTraslado[] | undefined>(undefined);
   const [existencias, setExistencias] = useState<Existencia[]>([]);
   const [formulario, setFormulario] = useState(false);
+  const [editando, setEditando] = useState<RegistroTraslado | null>(null);
+  const [recibiendo, setRecibiendo] = useState<RegistroTraslado | null>(null);
   const [mes, setMes] = useState(() => hoyCostaRica().slice(0, 7));
   const hoy = hoyCostaRica();
   const mesActual = hoy.slice(0, 7);
@@ -68,14 +77,39 @@ export default function Traslados() {
 
   function guardar(t: TrasladoValido) {
     if (!uid) return;
+    if (editando) {
+      const previo = editando;
+      void actualizarTraslado(uid, previo, t).catch(() => mostrar('No se pudo guardar el cambio.', { tono: 'error' }));
+      mostrar('Traslado actualizado.', {
+        tono: 'ok',
+        accion: { etiqueta: 'Deshacer', alPulsar: () => void restaurarTraslado(uid, previo).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
+      });
+      return;
+    }
     void crearTraslado(uid, t).catch(() => mostrar('No se pudo guardar el traslado.', { tono: 'error' }));
     mostrar('Traslado registrado.', { tono: 'ok' });
   }
 
+  // Una recepción pregunta cuánto llegó de cada producto; un envío se marca directo.
+  function recibir(t: RegistroTraslado, items: ItemTraslado[]) {
+    if (!uid) return;
+    void recibirTraslado(uid, t.id, items, hoy).catch(() => mostrar('No se pudo actualizar el traslado.', { tono: 'error' }));
+    const conDiferencia = items.some((i) => (diferenciaItem(i) ?? 0) !== 0);
+    mostrar(conDiferencia ? 'Recibido con diferencia.' : 'Marcado como recibido.', {
+      tono: 'ok',
+      accion: { etiqueta: 'Deshacer', alPulsar: () => void reabrirTraslado(uid, t.id, quitarRecepcion(items)).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
+    });
+    setRecibiendo(null);
+  }
+
   function cerrar(t: RegistroTraslado) {
     if (!uid) return;
+    if (t.tipo === 'recepcion') {
+      setRecibiendo(t);
+      return;
+    }
     void cerrarTrasladoDb(uid, t, hoy).catch(() => mostrar('No se pudo actualizar el traslado.', { tono: 'error' }));
-    mostrar(t.tipo === 'recepcion' ? 'Marcado como recibido.' : 'Marcado como enviado.', {
+    mostrar('Marcado como enviado.', {
       tono: 'ok',
       accion: { etiqueta: 'Deshacer', alPulsar: () => void reabrirTraslado(uid, t.id).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
     });
@@ -126,7 +160,7 @@ export default function Traslados() {
               <h2 className="text-lg font-semibold">Pendientes ({pendientes.length})</h2>
               <ul className="flex flex-col gap-2">
                 {pendientes.map((t) => (
-                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alBorrar={() => borrar(t)} />
+                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} udDe={(c) => porCodigo.get(c)?.ud ?? ''} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alEditar={() => setEditando(t)} alBorrar={() => borrar(t)} />
                 ))}
               </ul>
             </section>
@@ -155,7 +189,7 @@ export default function Traslados() {
             ) : (
               <ul className="flex flex-col gap-2">
                 {delMes.filter((t) => t.estado !== 'pendiente').map((t) => (
-                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alBorrar={() => borrar(t)} />
+                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} udDe={(c) => porCodigo.get(c)?.ud ?? ''} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alEditar={() => setEditando(t)} alBorrar={() => borrar(t)} />
                 ))}
               </ul>
             )}
@@ -163,7 +197,19 @@ export default function Traslados() {
         </>
       )}
 
-      <FormularioTraslado abierta={formulario} alCerrar={() => setFormulario(false)} existencias={existencias} alGuardar={guardar} />
+      <HojaRecepcionTraslado registro={recibiendo} udDe={(c) => porCodigo.get(c)?.ud} nombre={nombre} alCerrar={() => setRecibiendo(null)} alRecibir={recibir} />
+
+      <FormularioTraslado
+        key={editando?.id ?? 'nuevo'}
+        abierta={formulario || editando !== null}
+        alCerrar={() => {
+          setFormulario(false);
+          setEditando(null);
+        }}
+        existencias={existencias}
+        alGuardar={guardar}
+        inicial={editando ?? undefined}
+      />
     </Pantalla>
   );
 }
@@ -173,13 +219,16 @@ interface FilaProps {
   hoy: string;
   nombre: (codigo: string) => string;
   cantidad: (codigo: string, base: number) => string;
+  /** UD del producto según el último reporte (para mostrar la diferencia). */
+  udDe: (codigo: string) => string;
   checklist: boolean;
   alCerrar: () => void;
   alTramite: (campo: 'enSAP' | 'enSIFA') => void;
+  alEditar: () => void;
   alBorrar: () => void;
 }
 
-function FilaTraslado({ t, hoy, nombre, cantidad, checklist, alCerrar, alTramite, alBorrar }: FilaProps) {
+function FilaTraslado({ t, hoy, nombre, cantidad, udDe, checklist, alCerrar, alTramite, alEditar, alBorrar }: FilaProps) {
   const pendiente = t.estado === 'pendiente';
   return (
     <li className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
@@ -190,9 +239,14 @@ function FilaTraslado({ t, hoy, nombre, cantidad, checklist, alCerrar, alTramite
             {ETIQUETA_TIPO_TRASLADO[t.tipo]} {t.tipo === 'envio' ? 'a' : 'desde'} {t.unidad}
           </span>
         </span>
-        <button type="button" aria-label={`Borrar traslado ${t.ordenSAP}`} onClick={alBorrar} className="grid size-11 shrink-0 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
-          <Trash2 aria-hidden className="size-4" />
-        </button>
+        <div className="flex shrink-0">
+          <button type="button" aria-label={`Editar traslado ${t.ordenSAP}`} onClick={alEditar} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
+            <Pencil aria-hidden className="size-4" />
+          </button>
+          <button type="button" aria-label={`Borrar traslado ${t.ordenSAP}`} onClick={alBorrar} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
+            <Trash2 aria-hidden className="size-4" />
+          </button>
+        </div>
       </div>
       <ul className="flex flex-col gap-0.5 text-xs">
         {t.items.map((i) => (
@@ -200,7 +254,14 @@ function FilaTraslado({ t, hoy, nombre, cantidad, checklist, alCerrar, alTramite
             <span className="min-w-0 truncate">
               <span className="font-mono text-text-muted">{i.codigo}</span> {nombre(i.codigo)}
             </span>
-            <span className="shrink-0 font-semibold">{cantidad(i.codigo, i.cantidad)}</span>
+            <span className="shrink-0 font-semibold">
+              {cantidad(i.codigo, i.cantidad)}
+              {(diferenciaItem(i) ?? 0) !== 0 && (
+                <span className="ml-2 font-bold">
+                  llegó {cantidad(i.codigo, i.recibida ?? 0)} · {formatearDiferencia(diferenciaItem(i), udDe(i.codigo))}
+                </span>
+              )}
+            </span>
           </li>
         ))}
       </ul>

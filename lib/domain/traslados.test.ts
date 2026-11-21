@@ -125,6 +125,7 @@ describe('totalesTraslados', () => {
       tramitePendiente: 1,
       unidadesEnviadas: 75,
       unidadesRecibidas: 100,
+      conDiferencia: 0,
     });
   });
   it('sin registros devuelve ceros', () => {

@@ -20,8 +20,9 @@ import { guardarCargaLotes, leerLotes } from '@/lib/db/lotes';
 import { lotesDesdeFilas, revisarCarga, type Lote, type LoteGuardado, type RevisionLotes } from '@/lib/domain/lotes';
 import { useEstadoSync } from '@/lib/db/sync';
 import { leerPdfEnNavegador } from '@/lib/pdf/leerPdf';
-import { esReporteLotes, parsearLotes, type FilaLote, type ResultadoLotes } from '@/lib/pdf/lotes';
+import { parsearLotes, type FilaLote, type ResultadoLotes } from '@/lib/pdf/lotes';
 import { parsearReporte } from '@/lib/pdf/parser';
+import { detectarTipoArchivo, ETIQUETA_ARCHIVO, resolverTipoArchivo, TIPOS_ARCHIVO, type EleccionArchivo } from '@/lib/pdf/tipoArchivo';
 import { ErrorReporte, type ResultadoReporte } from '@/lib/pdf/tipos';
 
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -63,6 +64,8 @@ export default function Importar() {
   const [fase, setFase] = useState<Fase>({ tipo: 'inicio' });
   const [error, setError] = useState<string | null>(null);
   const [arrastrando, setArrastrando] = useState(false);
+  // Qué reporte es: la persona lo elige o deja que Stocky lo detecte por el encabezado del PDF.
+  const [eleccion, setEleccion] = useState<EleccionArchivo>('auto');
   // Cada carga de lotes exige confirmar que se revisaron los cambios.
   const [revisado, setRevisado] = useState(false);
   const entrada = useRef<HTMLInputElement>(null);
@@ -83,7 +86,13 @@ export default function Importar() {
     setFase({ tipo: 'leyendo', archivo: archivo.name });
     try {
       const lineas = await leerPdfEnNavegador(archivo);
-      if (esReporteLotes(lineas)) {
+      const resolucion = resolverTipoArchivo(eleccion, detectarTipoArchivo(lineas));
+      if (!resolucion.ok) {
+        setFase({ tipo: 'inicio' });
+        setError(resolucion.error);
+        return;
+      }
+      if (resolucion.tipo === 'lotesVencimientos') {
         await procesarLotes(archivo.name, lineas);
         return;
       }
@@ -207,6 +216,27 @@ export default function Importar() {
     <Pantalla titulo="Importar reporte">
       {fase.tipo === 'inicio' && (
         <>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-semibold">¿Qué reporte es?</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ['auto', 'Detectar solo', 'Por el encabezado del PDF'],
+                  ...TIPOS_ARCHIVO.map((t) => [t, ETIQUETA_ARCHIVO[t], ''] as const),
+                ] as const
+              ).map(([id, etiqueta, detalle]) => (
+                <label
+                  key={id}
+                  className={`flex min-h-11 cursor-pointer flex-col justify-center rounded-2xl px-3 py-2 text-sm transition duration-200 ${eleccion === id ? 'bg-accent font-semibold text-bg' : 'bg-surface-2 text-text-muted'}`}
+                >
+                  <input type="radio" name="tipo-reporte" value={id} checked={eleccion === id} onChange={() => setEleccion(id)} className="sr-only" />
+                  <span>{etiqueta}</span>
+                  {detalle && <span className="text-[11px] font-normal opacity-80">{detalle}</span>}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-text-muted">Si eliges un tipo y el PDF es de otro, no se guarda nada y te aviso.</p>
+          </fieldset>
           <Card
             onDragOver={(e) => {
               e.preventDefault();

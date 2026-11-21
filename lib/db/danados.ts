@@ -55,6 +55,13 @@ export function borrarDanado(uid: string, id: string): Promise<void> {
   return registrarEscritura(deleteDoc(doc(firestore(), `${coleccion(uid)}/${id}`)));
 }
 
+/** Corrige un dañado ya guardado (la foto no se toca aquí: ver `adjuntarFoto`). */
+export function actualizarDanado(uid: string, id: string, e: EntradaDanado): Promise<void> {
+  return registrarEscritura(
+    updateDoc(doc(firestore(), `${coleccion(uid)}/${id}`), { fecha: e.fecha, codigo: e.codigo, lote: e.lote, cantidad: e.cantidad, motivo: e.motivo, notas: e.notas }),
+  );
+}
+
 export function guardarNotasDanado(uid: string, id: string, notas: string): Promise<void> {
   return registrarEscritura(updateDoc(doc(firestore(), `${coleccion(uid)}/${id}`), { notas: notas.slice(0, 500) }));
 }

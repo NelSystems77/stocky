@@ -1,6 +1,6 @@
 import { esCodigoValido, normalizarCodigo } from './codigos';
 import type { FechaISO } from './types';
-import { aUnidadesBase, TABLA_UD_INICIAL, type TablaUD } from './unidades';
+import { aUnidadesBase, deUnidadesBase, normalizarUD, TABLA_UD_INICIAL, type TablaUD } from './unidades';
 
 /** Presentaciones habituales del preconteo; cualquier otro número entero también vale. */
 export const PRESENTACIONES_PRECONTEO = [30, 60, 90] as const;
@@ -99,6 +99,21 @@ export function preconteosPendientes(registros: readonly RegistroPreconteo[]): R
   return registros.filter((r) => r.recibida === null).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.codigo.localeCompare(b.codigo));
 }
 
+export interface ResumenEntregasPendientes {
+  total: number;
+  /** Días calendario que lleva la entrega sin recibir más antigua; `0` si no hay ninguna. */
+  masAntiguaDias: number;
+}
+
+/** Entregas sin recibir y qué tan vieja es la más antigua (para el chip de Hoy). Nunca negativo. */
+export function resumenEntregasPendientes(registros: readonly RegistroPreconteo[], hoy: FechaISO): ResumenEntregasPendientes {
+  const pendientes = preconteosPendientes(registros);
+  const primera = pendientes[0];
+  if (!primera) return { total: 0, masAntiguaDias: 0 };
+  const aUTC = (f: FechaISO) => Date.parse(`${f}T00:00:00Z`);
+  return { total: pendientes.length, masAntiguaDias: Math.max(0, Math.round((aUTC(hoy) - aUTC(primera.fecha)) / 86_400_000)) };
+}
+
 export interface TotalPreconteo {
   codigo: string;
   presentacion: number;
@@ -139,4 +154,17 @@ export function totalesPreconteo(registros: readonly RegistroPreconteo[]): Total
     (a, b) => b.entregado - a.entregado || a.codigo.localeCompare(b.codigo) || a.presentacion - b.presentacion,
   );
   return { entregas: registros.length, pendientes, conDiferencia, porProducto };
+}
+
+/**
+ * Una entrega ya guardada como la escribió la persona, para editarla: la cantidad vuelve a la UD del producto
+ * (`ud` según el último reporte; sin ella queda en unidades sueltas). Es la inversa de `validarPreconteo`.
+ */
+export function entradaDesdePreconteo(
+  r: Pick<RegistroPreconteo, 'fecha' | 'codigo' | 'cantidad' | 'presentacion' | 'notas'>,
+  ud: string | undefined,
+  tabla: TablaUD = TABLA_UD_INICIAL,
+): EntradaPreconteo {
+  const unidad = normalizarUD(ud ?? 'UN');
+  return { fecha: r.fecha, codigo: r.codigo, cantidad: deUnidadesBase(r.cantidad, unidad, tabla), ud: unidad, presentacion: r.presentacion, notas: r.notas };
 }
