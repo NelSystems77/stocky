@@ -34,9 +34,15 @@ export async function generarExcelResumen(d: DatosResumen): Promise<Uint8Array> 
   return new Uint8Array(XLSX.write(libro, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
 }
 
-/** Genera el libro de Excel en el dispositivo. SheetJS solo se usa para escribir, nunca para leer archivos ajenos. */
+/** Gris de las filas resaltadas (con diferencia): el mismo del PDF. */
+const GRIS_RESALTE = 'D1D5DB';
+
+/**
+ * Genera el libro de Excel en el dispositivo. Solo se usa para escribir, nunca para leer archivos ajenos.
+ * Usa `xlsx-js-style` (SheetJS con estilos) porque SheetJS no escribe colores de relleno; el resto del código sigue con `xlsx`.
+ */
 export async function generarExcel(d: DatosReporte): Promise<Uint8Array> {
-  const XLSX = await import('xlsx');
+  const XLSX = await import('xlsx-js-style');
   const fecha = format(d.generadoEn, "d 'de' MMMM yyyy, h:mm a", { locale: es });
 
   const filas: (string | number)[][] = [
@@ -58,6 +64,19 @@ export async function generarExcel(d: DatosReporte): Promise<Uint8Array> {
   hoja['!cols'] = d.columnas.map((titulo, i) => ({
     wch: Math.min(60, Math.max(titulo.length, ...d.filas.map((f) => String(f[i] ?? '').length)) + 2),
   }));
+
+  // Filas resaltadas (p. ej. con diferencia en el conteo): fondo gris y, en las columnas indicadas, negrita.
+  if (d.filasResaltadas && d.filasResaltadas.length > 0) {
+    const primeraFila = 4 + d.detalle.length + 2; // marca, título, usuario, fecha, detalle, línea en blanco y encabezado de la tabla
+    const negrita = new Set(d.columnasNegrita ?? []);
+    for (const i of d.filasResaltadas) {
+      for (let c = 0; c < d.columnas.length; c++) {
+        const dir = XLSX.utils.encode_cell({ r: primeraFila + i, c });
+        const celda = hoja[dir] ?? (hoja[dir] = { t: 's', v: '' });
+        celda.s = { fill: { patternType: 'solid', fgColor: { rgb: GRIS_RESALTE } }, font: { bold: negrita.has(c) } };
+      }
+    }
+  }
 
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, d.titulo.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));

@@ -10,6 +10,8 @@
   --color-low: #fde68a;
   --color-info: #60a5fa;
   --color-ok: #34d399;
+  /* Gris de las filas con diferencia en el conteo físico: se distingue sin gastar los colores de lo urgente. */
+  --color-diferencia: #3b4660;
   --color-text: #e5e7eb;
   --color-text-muted: #94a3b8;
   --font-sans: var(--font-inter), system-ui, sans-serif;

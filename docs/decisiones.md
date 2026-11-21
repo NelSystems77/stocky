@@ -335,3 +335,16 @@ La persona usuaria preguntó si los avisos «Lote repetido en el reporte… 2 fi
 - La vista previa tiene un bloque propio: «N lotes vienen en dos filas (varias entradas del mismo lote)… no se duplica nada», con cada suma («1 060 + 3 200 = 4 260 CN») y su estado: **coincide con SIFA**, **el producto NO coincide con SIFA: revisa** (esa sí lleva borde de advertencia) o **sin existencias guardadas para comparar**.
 - Sigue guardándose un solo lote con el total; cargar el mismo reporte otra vez no vuelve a sumar.
 
+## 2026-11-21 · Conteo físico contra SIFA (CLAUDE.md §13): decisiones de la primera versión
+
+La persona usuaria fijó el orden de prioridad y el conteo físico quedó primero. Decisiones para lo que el §13 dejaba abierto:
+
+- **Solo por producto** (no por lote) en esta versión. Contar por lote se agrega cuando haya muestra del reporte de lotes; se anotó como pendiente.
+- **Producto contado que no está en SIFA:** se puede agregar con código, nombre y UD; **SIFA = 0**, todo lo contado cuenta como sobrante y la fila queda marcada «No está en SIFA».
+- **Alcance:** todos los productos o una lista que se arma buscando por código o nombre. El filtro por ubicación llega con Ubicaciones (M6).
+- **Datos:** `usuarios/{uid}/conteos/{id}` guarda la **foto** de SIFA (código → descripción, UD y existencia en unidades base) y la fecha del reporte; **no se edita** (las reglas niegan `update`). Lo contado vive en `conteos/{id}/lineas/{codigo}` (una por producto contado; sin línea = «sin contar», no 0). Así una captura es una sola escritura pequeña, también sin conexión.
+- **Captura:** unidades sueltas; acepta `20000`, `20 000`, `20.050` (miles) y decimales con coma. Un punto con exactamente tres dígitos se toma como miles (`20.050` = 20050).
+- **Gris:** token nuevo `diferencia` (`#3b4660`) en pantalla; en el PDF el rayado alterno se desactiva cuando hay filas resaltadas (el gris significaría dos cosas) y las filas con diferencia van en gris con la diferencia en negrita.
+- **Excel con gris:** SheetJS (`xlsx`) no escribe colores de relleno (verificado: el `styles.xml` no los trae), así que se suma **`xlsx-js-style` 1.2.0** (fork de SheetJS con estilos; Apache-2.0; versión fijada; publicada en abril de 2022, sin cambios desde entonces; **solo escribe** libros, nunca lee archivos ajenos) y se agrega al stack de `CLAUDE.md`. Solo `generarExcel` lo usa (carga dinámica); el resumen mensual sigue con `xlsx`. Las filas con diferencia salen con fondo gris `D1D5DB` y la diferencia en negrita, y además llevan «(falta)» o «(sobra)» en texto para no depender solo del color. `npm audit` no suma hallazgos nuevos (el aviso sobre `xlsx` ya existía). Verificado en el archivo generado (relleno y negrita en `styles.xml`).
+- **Pruebas (Vitest):** conversión sueltas → UD (`20000 → 200 CN`, decimales, factor 1), signo de la diferencia, sin contar ≠ 0, foto que se conserva al importar otro reporte, resumen, `leerCantidad` y el reporte (columnas, resalte, solo diferencias, PDF y Excel válidos). Reglas de Firestore verificadas contra el emulador (dueño, foto inmutable, línea inválida, otro usuario). **La pantalla no se ha probado en el navegador.**
+

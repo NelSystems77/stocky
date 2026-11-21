@@ -1,11 +1,13 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-20** (noche, después de fusionar los PR 10 y 11). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-21** (después del PR 22 y del conteo físico). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
 
-- **Pendiente: feedback de las pruebas de usuario (capa 8)** de la persona usuaria con la app en producción (Hoy, Agenda → Pedidos y envíos, Reportes, Ajustes, importación de existencias y de lotes, Inventario → Vencimientos con sus pestañas y exportación). Lo hará ella y enviará sus comentarios; **corregir lo que reporte es lo primero de la próxima sesión**. Ya se corrigió en pruebas reales: el «Cargando…» infinito de Vencimientos sin cargas de consumos (PR 16), las 13 «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15).
+- **Primera etapa de pruebas de usuario (capa 8): cerrada el 2026-11-21.** Lo encontrado está resuelto: el «Cargando…» de Vencimientos (PR 16), las «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15) y la página que iOS acercaba al abrir Chango (PR 21 y 22). Si llega feedback nuevo, atenderlo primero.
+- **Chango IA no responde todavía:** Google devuelve 403 («the Gemini API free tier is not available for this project») con la key del proyecto sin facturación; el proyecto Stocky tiene el prepago sin créditos (402). Hay que decidir entre cargar un crédito pequeño o dejarlo apagado. Los registros de `changoPreguntar` ahora dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). La key actual es **temporal**: cambiarla por la definitiva (`firebase functions:secrets:set GEMINI_API_KEY`) y relanzar el despliegue.
+- **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de un agotado y pantalla del 771 para habilitar módulos al 772 · 4 elegir el tipo de archivo al importar · 5 resumen mensual automático · 6 editar dañados, traslados y entregas. Ver «Código pendiente».
 - **`main` incluye hasta el PR 11** y está desplegado en producción por GitHub Actions: Fase 3 (registros), Chango IA (PR 9), **pedidos y envíos a puestos** (PR 10) y **Vencimientos completo** (PR 11).
 - **Ningún PR abierto.**
 - **Las pantallas de los PR 10 y 11 nunca se probaron en el navegador** (solo tipos, lint, build, pruebas unitarias y pruebas contra el emulador de Firestore). Es lo primero que conviene hacer: abrir Hoy, Agenda → Pedidos y envíos, Reportes, Ajustes, la importación del PDF de lotes y Inventario → Vencimientos, en celular (360 px) y en PC.
@@ -26,6 +28,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | **Pedidos y envíos a puestos (M4 y M5)**, con avisos, feriados al día hábil anterior y secciones en el resumen mensual | Hecho (PR 10) |
 | **Lotes y vencimientos:** lector del PDF real, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | Hecho (PR 11) |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
+| **Conteo físico contra SIFA** (Inventario → Conteo físico): foto congelada de SIFA, captura en sueltas con la UD, diferencia con signo, filas grises, «solo diferencias», productos fuera de SIFA, exportar PDF y Excel (con gris) | Hecho (PR 23, sin probar en navegador) |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
 
@@ -48,20 +51,20 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - Restringir la API key web a los dominios de Hosting y `localhost`.
 - **App Check fase 2** (`enforceAppCheck`): solo tras revisar Firebase Console → App Check → Métricas y con visto bueno explícito.
 
-### Código pendiente
-- **Vencimientos:** completo (umbrales editables, aviso push, exportar a PDF/Excel, Chango con lotes y aviso de ingresos sin sumar). Queda que la proyección sume ingresos, imposible sin los lotes que entraron: el reporte real los trae.
-- Probar en el navegador Ajustes (umbrales), la importación del PDF de lotes, la pantalla de Vencimientos y su exportación (solo hay pruebas unitarias, del PDF real, de reglas y de la Function en emulador).
+### Código pendiente (en orden de prioridad)
+1. ~~**Conteo físico contra SIFA** (`CLAUDE.md` §13)~~ → hecho en el PR 23. Queda por probar en el navegador y, más adelante, contar **por lote** y filtrar **por ubicación** (cuando exista el módulo). El Excel pinta de gris con `xlsx-js-style` (sumado al stack) y además marca «(falta)»/«(sobra)» en texto.
+2. **Reporte PDF/Excel «Bajos y riesgo»** (PRD §7).
+3. **Alerta A8** (reporte desactualizado, más de 8 días sin consumos) · **alta manual de un agotado** (RF-3.4) · **pantalla para que el 771 habilite módulos al 772** (la callable ya existe; la UI solo está en `/admin`) y navegación del 772 con esos módulos.
+4. **Elegir qué hacer con el archivo al importar** (cargar existencias, cargar lotes, actualizar consumos…): hoy Stocky detecta el tipo de reporte por su encabezado.
+5. **Resumen mensual automático** del último día hábil (requiere Function programada).
+6. **Editar** un dañado, un traslado o una entrega ya guardados; cantidades recibidas distintas de las enviadas; recordatorio de entregas sin recibir.
+
+Sin número (quedan pendientes por ahora):
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
-- **Conteo físico contra SIFA** (`CLAUDE.md` §13, fuera del PRD): se construye después del consolidado de Inventario.
-- Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
-- **Elegir qué hacer con el archivo al importar** (cargar existencias, cargar lotes, actualizar consumos…): hoy Stocky detecta el tipo de reporte por su encabezado; la persona usuaria pidió poder elegirlo (idea para más adelante).
+- Que **Chango conozca la agenda de pedidos y envíos y las ubicaciones** (hoy su contexto dice que no están disponibles; sí conoce lotes y vencimientos).
+- Vencimientos: que la proyección sume ingresos (imposible sin los lotes que entraron: el reporte real los trae).
 - Aviso **push** cuando aparezca una diferencia nueva entre lotes y existencias (se descartó por ahora: solo pantalla y chip).
-- Alerta **A8** (reporte desactualizado, más de 8 días sin consumos).
-- **Alta manual de un agotado** (RF-3.4).
-- Pantalla para que el **771 habilite módulos al 772** y navegación del 772 con esos módulos (la callable ya existe; la UI solo está en `/admin`).
-- Resumen mensual automático del último día hábil (requiere Function programada).
-- Chango IA aún no conoce la agenda de pedidos y envíos ni las ubicaciones (su contexto dice que no están disponibles); sí conoce lotes y vencimientos.
-- Editar un dañado, un traslado o una entrega ya guardados; cantidades recibidas distintas de las enviadas; recordatorio de entregas sin recibir.
+- Probar en el navegador Ajustes (umbrales), la importación del PDF de lotes y la exportación de Vencimientos.
 
 ### Fase 5 (mejoras)
 Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el 772.
@@ -76,6 +79,7 @@ Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el
 
 ## Para la próxima sesión
 
-1. Si la persona usuaria ya probó la app: corregir lo que haya encontrado en las pantallas de pedidos y envíos y de Vencimientos.
-2. Según lo que llegue: un PDF de **consumos** → riesgo con datos reales; nombres de estantes → Ubicaciones; si no, tomar un pendiente de código pequeño (A8, alta manual de agotado, pantalla del 771 para habilitar módulos al 772, reporte «Bajos y riesgo»).
-3. Antes de abrir un PR nuevo: partir de `main` actualizado (`git pull`), y si la rama queda apilada sobre otra que se fusiona con squash, rebasar con `git rebase --onto origin/main <último commit de la rama base>`.
+1. Probar el **conteo físico** en el celular (crear un conteo con unos pocos productos, capturar sin conexión, exportar PDF y Excel) y corregir lo que salga.
+2. Seguir el orden de prioridad: **2 · reporte «Bajos y riesgo»**, luego el 3 y así.
+3. Resolver con la persona usuaria lo de Chango (crédito o dejarlo apagado) y cambiar la key temporal.
+4. Antes de abrir un PR nuevo: partir de `main` actualizado (`git pull`), y si la rama queda apilada sobre otra que se fusiona con squash, rebasar con `git rebase --onto origin/main <último commit de la rama base>`.
