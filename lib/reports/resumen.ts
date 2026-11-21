@@ -125,6 +125,7 @@ function seccionTraslados(d: DatosMes): SeccionReporte {
         : [
             `Traslados: ${t.total} · enviados ${t.enviados} · recibidos ${t.recibidos} · pendientes ${t.pendientes}`,
             `Trámite SAP/SIFA sin completar: ${t.tramitePendiente}`,
+            ...(t.conDiferencia > 0 ? [`Recepciones con diferencia entre lo esperado y lo recibido: ${t.conDiferencia}`] : []),
           ],
   };
 }

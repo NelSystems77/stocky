@@ -1,7 +1,7 @@
 import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
 import { z } from 'zod';
 import type { FechaISO } from '@/lib/domain/types';
-import { camposEditadosTraslado, cerrarTraslado, type RegistroTraslado, type TrasladoValido } from '@/lib/domain/traslados';
+import { camposEditadosTraslado, cerrarTraslado, type ItemTraslado, type RegistroTraslado, type TrasladoValido } from '@/lib/domain/traslados';
 import { firestore } from '@/lib/firebase';
 import { registrarEscritura } from './sync';
 
@@ -12,7 +12,7 @@ export const TrasladoSchema = z.object({
   ordenSAP: z.string().regex(/^50000\d*$/),
   tipo: z.enum(['envio', 'recepcion']),
   unidad: z.string().min(1).max(80),
-  items: z.array(z.object({ codigo: z.string().min(1), cantidad: z.number().finite().positive() })).min(1),
+  items: z.array(z.object({ codigo: z.string().min(1), cantidad: z.number().finite().positive(), recibida: z.number().finite().nonnegative().optional() })).min(1),
   estado: z.enum(['pendiente', 'recibido', 'enviado']),
   fechaCierre: Fecha.nullable(),
   enSAP: z.boolean(),
@@ -67,9 +67,14 @@ export function cerrarTrasladoDb(uid: string, t: Pick<RegistroTraslado, 'id' | '
   return registrarEscritura(updateDoc(ref(uid, t.id), cerrarTraslado(t, fecha)));
 }
 
-/** Devuelve el traslado a pendiente (Deshacer). */
-export function reabrirTraslado(uid: string, id: string): Promise<void> {
-  return registrarEscritura(updateDoc(ref(uid, id), { estado: 'pendiente', fechaCierre: null }));
+/** Cierra una recepción anotando lo que realmente llegó de cada producto (`items` ya trae `recibida`). */
+export function recibirTraslado(uid: string, id: string, items: readonly ItemTraslado[], fecha: FechaISO): Promise<void> {
+  return registrarEscritura(updateDoc(ref(uid, id), { estado: 'recibido', fechaCierre: fecha, items }));
+}
+
+/** Devuelve el traslado a pendiente (Deshacer). Con `items`, también restaura los productos (sin lo anotado como recibido). */
+export function reabrirTraslado(uid: string, id: string, items?: readonly ItemTraslado[]): Promise<void> {
+  return registrarEscritura(updateDoc(ref(uid, id), { estado: 'pendiente', fechaCierre: null, ...(items ? { items } : {}) }));
 }
 
 /** Checklist de trámite: registrado en SAP / aplicado en SIFA. */

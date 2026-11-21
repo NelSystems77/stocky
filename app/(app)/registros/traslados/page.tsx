@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { FormularioTraslado } from '@/components/registros/FormularioTraslado';
+import { HojaRecepcionTraslado } from '@/components/registros/HojaRecepcionTraslado';
 import { SelectorMes } from '@/components/registros/SelectorMes';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -20,20 +21,25 @@ import {
   crearTraslado,
   marcarTramite,
   reabrirTraslado,
+  recibirTraslado,
   restaurarTraslado,
   suscribirTraslados,
 } from '@/lib/db/traslados';
 import { hoyCostaRica } from '@/lib/domain/calendario';
+import { formatearDiferencia } from '@/lib/domain/conteo';
 import { formatearEnUD, formatearNumero } from '@/lib/domain/formato';
 import {
   diasDesdeRegistro,
+  diferenciaItem,
   ETIQUETA_ESTADO_TRASLADO,
   ETIQUETA_TIPO_TRASLADO,
   ordenarTraslados,
+  quitarRecepcion,
   totalesTraslados,
   tramiteCompleto,
   trasladosDelMes,
   trasladosPendientes,
+  type ItemTraslado,
   type RegistroTraslado,
   type TrasladoValido,
 } from '@/lib/domain/traslados';
@@ -51,6 +57,7 @@ export default function Traslados() {
   const [existencias, setExistencias] = useState<Existencia[]>([]);
   const [formulario, setFormulario] = useState(false);
   const [editando, setEditando] = useState<RegistroTraslado | null>(null);
+  const [recibiendo, setRecibiendo] = useState<RegistroTraslado | null>(null);
   const [mes, setMes] = useState(() => hoyCostaRica().slice(0, 7));
   const hoy = hoyCostaRica();
   const mesActual = hoy.slice(0, 7);
@@ -83,10 +90,26 @@ export default function Traslados() {
     mostrar('Traslado registrado.', { tono: 'ok' });
   }
 
+  // Una recepción pregunta cuánto llegó de cada producto; un envío se marca directo.
+  function recibir(t: RegistroTraslado, items: ItemTraslado[]) {
+    if (!uid) return;
+    void recibirTraslado(uid, t.id, items, hoy).catch(() => mostrar('No se pudo actualizar el traslado.', { tono: 'error' }));
+    const conDiferencia = items.some((i) => (diferenciaItem(i) ?? 0) !== 0);
+    mostrar(conDiferencia ? 'Recibido con diferencia.' : 'Marcado como recibido.', {
+      tono: 'ok',
+      accion: { etiqueta: 'Deshacer', alPulsar: () => void reabrirTraslado(uid, t.id, quitarRecepcion(items)).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
+    });
+    setRecibiendo(null);
+  }
+
   function cerrar(t: RegistroTraslado) {
     if (!uid) return;
+    if (t.tipo === 'recepcion') {
+      setRecibiendo(t);
+      return;
+    }
     void cerrarTrasladoDb(uid, t, hoy).catch(() => mostrar('No se pudo actualizar el traslado.', { tono: 'error' }));
-    mostrar(t.tipo === 'recepcion' ? 'Marcado como recibido.' : 'Marcado como enviado.', {
+    mostrar('Marcado como enviado.', {
       tono: 'ok',
       accion: { etiqueta: 'Deshacer', alPulsar: () => void reabrirTraslado(uid, t.id).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
     });
@@ -137,7 +160,7 @@ export default function Traslados() {
               <h2 className="text-lg font-semibold">Pendientes ({pendientes.length})</h2>
               <ul className="flex flex-col gap-2">
                 {pendientes.map((t) => (
-                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alEditar={() => setEditando(t)} alBorrar={() => borrar(t)} />
+                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} udDe={(c) => porCodigo.get(c)?.ud ?? ''} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alEditar={() => setEditando(t)} alBorrar={() => borrar(t)} />
                 ))}
               </ul>
             </section>
@@ -166,13 +189,15 @@ export default function Traslados() {
             ) : (
               <ul className="flex flex-col gap-2">
                 {delMes.filter((t) => t.estado !== 'pendiente').map((t) => (
-                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alEditar={() => setEditando(t)} alBorrar={() => borrar(t)} />
+                  <FilaTraslado key={t.id} t={t} hoy={hoy} nombre={nombre} cantidad={cantidad} udDe={(c) => porCodigo.get(c)?.ud ?? ''} checklist={checklist} alCerrar={() => cerrar(t)} alTramite={(c) => tramite(t, c)} alEditar={() => setEditando(t)} alBorrar={() => borrar(t)} />
                 ))}
               </ul>
             )}
           </section>
         </>
       )}
+
+      <HojaRecepcionTraslado registro={recibiendo} udDe={(c) => porCodigo.get(c)?.ud} nombre={nombre} alCerrar={() => setRecibiendo(null)} alRecibir={recibir} />
 
       <FormularioTraslado
         key={editando?.id ?? 'nuevo'}
@@ -194,6 +219,8 @@ interface FilaProps {
   hoy: string;
   nombre: (codigo: string) => string;
   cantidad: (codigo: string, base: number) => string;
+  /** UD del producto según el último reporte (para mostrar la diferencia). */
+  udDe: (codigo: string) => string;
   checklist: boolean;
   alCerrar: () => void;
   alTramite: (campo: 'enSAP' | 'enSIFA') => void;
@@ -201,7 +228,7 @@ interface FilaProps {
   alBorrar: () => void;
 }
 
-function FilaTraslado({ t, hoy, nombre, cantidad, checklist, alCerrar, alTramite, alEditar, alBorrar }: FilaProps) {
+function FilaTraslado({ t, hoy, nombre, cantidad, udDe, checklist, alCerrar, alTramite, alEditar, alBorrar }: FilaProps) {
   const pendiente = t.estado === 'pendiente';
   return (
     <li className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
@@ -227,7 +254,14 @@ function FilaTraslado({ t, hoy, nombre, cantidad, checklist, alCerrar, alTramite
             <span className="min-w-0 truncate">
               <span className="font-mono text-text-muted">{i.codigo}</span> {nombre(i.codigo)}
             </span>
-            <span className="shrink-0 font-semibold">{cantidad(i.codigo, i.cantidad)}</span>
+            <span className="shrink-0 font-semibold">
+              {cantidad(i.codigo, i.cantidad)}
+              {(diferenciaItem(i) ?? 0) !== 0 && (
+                <span className="ml-2 font-bold">
+                  llegó {cantidad(i.codigo, i.recibida ?? 0)} · {formatearDiferencia(diferenciaItem(i), udDe(i.codigo))}
+                </span>
+              )}
+            </span>
           </li>
         ))}
       </ul>

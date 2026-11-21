@@ -10,7 +10,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 - **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. Ver «Código pendiente».
 - **`main` incluye hasta el PR 24** (y el PR del punto 4 y 6 cuando se fusione) y está desplegado en producción por GitHub Actions: registros, pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados y módulos de la 772.
 - **Ningún PR abierto.**
-- **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar y la edición de dañados, traslados y entregas.
+- **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar, la edición de dañados, traslados y entregas, la recepción de traslados con diferencia y el chip «Entregas sin recibir».
 - La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
 
 ## Construido
@@ -57,11 +57,10 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 3. ~~**Alerta A8** · **alta manual de un agotado** · **pantalla del 771 para habilitar módulos al 772**~~ → hecho en el PR 24 (chip «Consumos sin actualizar» en Hoy; «Registrar a mano» en Agotados; Ajustes → Farmacia 772 y navegación de la 772 con Registros). Sin probar en navegador; la callable `cuentas772` se estrena al desplegar. Falta que la 772 vea Pedidos/Envíos/Ubicaciones en su navegación cuando se los habiliten (hoy solo Registros).
 4. ~~**Elegir qué hacer con el archivo al importar**~~ → hecho: Importar tiene el selector «¿Qué reporte es?» (Detectar solo, Existencias, Productos en despacho, Lotes y vencimientos); si el PDF no es del tipo elegido no se guarda nada y se avisa. Sin probar en el celular.
 ~~5.~~ *(sin número, pendiente)*: ver abajo.
-6. ~~**Editar** un dañado, un traslado o una entrega ya guardados~~ → hecho: botón de lápiz en cada registro, con Deshacer (el formulario se abre con los datos y las cantidades vuelven a la UD del producto; al editar un traslado no se toca el trámite SAP/SIFA, y si cambia el tipo y el estado ya no corresponde vuelve a pendiente). **Siguen pendientes** las otras dos partes: cantidades recibidas distintas de las enviadas en traslados (cambia el modelo de datos) y el recordatorio de entregas sin recibir (requiere la Function programada).
+6. ~~**Editar** un dañado, un traslado o una entrega ya guardados · cantidades recibidas distintas de las enviadas · recordatorio de entregas sin recibir~~ → hecho: lápiz en cada registro con Deshacer; al recibir un **traslado de recepción** se anota cuánto llegó de cada producto (por defecto, «Llegó todo») y se ve la diferencia con signo; chip **«Entregas sin recibir»** en Hoy (solo 771, sin aviso push). Sin probar en el celular.
 
 Sin número (quedan pendientes por ahora):
 - **Resumen mensual automático** del último día hábil (requiere Function programada).
-- Traslados: **cantidades recibidas distintas de las enviadas**, y **recordatorio de entregas sin recibir**.
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
 - Que **Chango conozca la agenda de pedidos y envíos y las ubicaciones** (hoy su contexto dice que no están disponibles; sí conoce lotes y vencimientos).
 - Vencimientos: que la proyección sume ingresos (imposible sin los lotes que entraron: el reporte real los trae).

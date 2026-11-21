@@ -99,6 +99,21 @@ export function preconteosPendientes(registros: readonly RegistroPreconteo[]): R
   return registros.filter((r) => r.recibida === null).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.codigo.localeCompare(b.codigo));
 }
 
+export interface ResumenEntregasPendientes {
+  total: number;
+  /** Días calendario que lleva la entrega sin recibir más antigua; `0` si no hay ninguna. */
+  masAntiguaDias: number;
+}
+
+/** Entregas sin recibir y qué tan vieja es la más antigua (para el chip de Hoy). Nunca negativo. */
+export function resumenEntregasPendientes(registros: readonly RegistroPreconteo[], hoy: FechaISO): ResumenEntregasPendientes {
+  const pendientes = preconteosPendientes(registros);
+  const primera = pendientes[0];
+  if (!primera) return { total: 0, masAntiguaDias: 0 };
+  const aUTC = (f: FechaISO) => Date.parse(`${f}T00:00:00Z`);
+  return { total: pendientes.length, masAntiguaDias: Math.max(0, Math.round((aUTC(hoy) - aUTC(primera.fecha)) / 86_400_000)) };
+}
+
 export interface TotalPreconteo {
   codigo: string;
   presentacion: number;

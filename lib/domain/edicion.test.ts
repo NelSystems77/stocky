@@ -67,7 +67,7 @@ describe('editar un traslado', () => {
     expect(camposEditadosTraslado(guardado, r.valor)).toMatchObject({ tipo: 'envio', estado: 'pendiente', fechaCierre: null });
   });
   it('un traslado pendiente sigue pendiente aunque cambie el tipo', () => {
-    const pendiente = { estado: 'pendiente' as const, fechaCierre: null };
+    const pendiente = { estado: 'pendiente' as const, fechaCierre: null, items: [] };
     const r = validarTraslado({ ...entradaDesdeTraslado(guardado, udDe), tipo: 'envio' });
     if (!r.ok) throw new Error('inválido');
     expect(camposEditadosTraslado(pendiente, r.valor)).toMatchObject({ estado: 'pendiente', fechaCierre: null });
