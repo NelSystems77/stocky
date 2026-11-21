@@ -8,7 +8,7 @@ import { Hoja } from '@/components/ui/Hoja';
 import type { Existencia } from '@/lib/db/existencias';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { normalizarCodigo } from '@/lib/domain/codigos';
-import { ETIQUETA_MOTIVO, MOTIVOS_DANADO, validarDanado, type EntradaDanado, type MotivoDanado } from '@/lib/domain/danados';
+import { ETIQUETA_MOTIVO, MOTIVOS_DANADO, validarDanado, type EntradaDanado, type MotivoDanado, type RegistroDanado } from '@/lib/domain/danados';
 import { formatearEnUD, tieneFactor } from '@/lib/domain/formato';
 
 interface Props {
@@ -16,16 +16,20 @@ interface Props {
   alCerrar: () => void;
   existencias: readonly Existencia[];
   alGuardar: (entrada: EntradaDanado, foto: File | null) => void;
+  /** Si viene, el formulario edita ese dañado en lugar de crear uno nuevo. */
+  inicial?: RegistroDanado;
 }
 
-export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar }: Props) {
-  const [consulta, setConsulta] = useState('');
-  const [producto, setProducto] = useState<Existencia | null>(null);
-  const [fecha, setFecha] = useState(() => hoyCostaRica());
-  const [lote, setLote] = useState('');
-  const [cantidad, setCantidad] = useState('');
-  const [motivo, setMotivo] = useState<MotivoDanado>('quebrado');
-  const [notas, setNotas] = useState('');
+export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar, inicial }: Props) {
+  // Al editar, el formulario se monta con los datos del registro (la pantalla le pone `key` por registro).
+  const encontrado = inicial ? (existencias.find((e) => e.codigo === inicial.codigo) ?? null) : null;
+  const [consulta, setConsulta] = useState(inicial && !encontrado ? inicial.codigo : '');
+  const [producto, setProducto] = useState<Existencia | null>(encontrado);
+  const [fecha, setFecha] = useState(() => inicial?.fecha ?? hoyCostaRica());
+  const [lote, setLote] = useState(inicial?.lote ?? '');
+  const [cantidad, setCantidad] = useState(inicial ? String(inicial.cantidad) : '');
+  const [motivo, setMotivo] = useState<MotivoDanado>(inicial?.motivo ?? 'quebrado');
+  const [notas, setNotas] = useState(inicial?.notas ?? '');
   const [foto, setFoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +55,7 @@ export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar }: 
   }
 
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Registrar dañado">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo={inicial ? 'Editar dañado' : 'Registrar dañado'}>
       <div className="flex flex-col gap-3">
         <BuscadorProducto existencias={existencias} producto={producto} alElegir={setProducto} consulta={consulta} alCambiarConsulta={setConsulta} />
 
@@ -99,7 +103,7 @@ export function FormularioDanado({ abierta, alCerrar, existencias, alGuardar }: 
         <div className="flex flex-col gap-1 text-xs text-text-muted">
           <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-surface-2 px-3 text-sm text-text">
             <Camera aria-hidden className="size-4" />
-            {foto ? foto.name : 'Agregar foto (opcional)'}
+            {foto ? foto.name : inicial?.fotoRuta ? 'Cambiar foto (opcional)' : 'Agregar foto (opcional)'}
             <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => setFoto(e.target.files?.[0] ?? null)} />
           </label>
           <p>La foto se sube cuando hay conexión.</p>

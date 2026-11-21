@@ -7,7 +7,7 @@ import type { Existencia } from '@/lib/db/existencias';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { normalizarCodigo } from '@/lib/domain/codigos';
 import { formatearNumero } from '@/lib/domain/formato';
-import { PRESENTACIONES_PRECONTEO, validarPreconteo, type EntregaValida } from '@/lib/domain/preconteo';
+import { entradaDesdePreconteo, PRESENTACIONES_PRECONTEO, validarPreconteo, type EntregaValida, type RegistroPreconteo } from '@/lib/domain/preconteo';
 import { aUnidadesBase, normalizarUD } from '@/lib/domain/unidades';
 import { BuscadorProducto } from './BuscadorProducto';
 
@@ -16,18 +16,24 @@ interface Props {
   alCerrar: () => void;
   existencias: readonly Existencia[];
   alGuardar: (entrega: EntregaValida) => void;
+  /** Si viene, el formulario edita esa entrega en lugar de crear una nueva. */
+  inicial?: RegistroPreconteo;
 }
 
 type Eleccion = (typeof PRESENTACIONES_PRECONTEO)[number] | 'otra';
 
-export function FormularioPreconteo({ abierta, alCerrar, existencias, alGuardar }: Props) {
-  const [consulta, setConsulta] = useState('');
-  const [producto, setProducto] = useState<Existencia | null>(null);
-  const [fecha, setFecha] = useState(() => hoyCostaRica());
-  const [cantidad, setCantidad] = useState('');
-  const [eleccion, setEleccion] = useState<Eleccion>(30);
-  const [otra, setOtra] = useState('');
-  const [notas, setNotas] = useState('');
+export function FormularioPreconteo({ abierta, alCerrar, existencias, alGuardar, inicial }: Props) {
+  // Al editar, el formulario se monta con los datos del registro (la pantalla le pone `key` por registro).
+  const encontrado = inicial ? (existencias.find((e) => e.codigo === inicial.codigo) ?? null) : null;
+  const previo = inicial ? entradaDesdePreconteo(inicial, encontrado?.ud) : null;
+  const habitual = previo !== null && (PRESENTACIONES_PRECONTEO as readonly number[]).includes(previo.presentacion);
+  const [consulta, setConsulta] = useState(inicial && !encontrado ? inicial.codigo : '');
+  const [producto, setProducto] = useState<Existencia | null>(encontrado);
+  const [fecha, setFecha] = useState(() => previo?.fecha ?? hoyCostaRica());
+  const [cantidad, setCantidad] = useState(previo ? String(previo.cantidad) : '');
+  const [eleccion, setEleccion] = useState<Eleccion>(previo ? (habitual ? (previo.presentacion as Eleccion) : 'otra') : 30);
+  const [otra, setOtra] = useState(previo && !habitual ? String(previo.presentacion) : '');
+  const [notas, setNotas] = useState(previo?.notas ?? '');
   const [error, setError] = useState<string | null>(null);
 
   // La cantidad se dice en la UD del producto (cientos para CN). Sin producto elegido se toma como unidades.
@@ -54,7 +60,7 @@ export function FormularioPreconteo({ abierta, alCerrar, existencias, alGuardar 
   }
 
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Entrega para preconteo">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo={inicial ? 'Editar entrega' : 'Entrega para preconteo'}>
       <div className="flex flex-col gap-3">
         <BuscadorProducto existencias={existencias} producto={producto} alElegir={setProducto} consulta={consulta} alCambiarConsulta={setConsulta} />
 

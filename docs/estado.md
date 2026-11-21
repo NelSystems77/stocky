@@ -1,16 +1,16 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-21** (después del PR 22 y del conteo físico). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-21** (después del PR 24 y de los puntos 4 y 6). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
 
 - **Primera etapa de pruebas de usuario (capa 8): cerrada el 2026-11-21.** Lo encontrado está resuelto: el «Cargando…» de Vencimientos (PR 16), las «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15) y la página que iOS acercaba al abrir Chango (PR 21 y 22). Si llega feedback nuevo, atenderlo primero.
 - **Chango IA no responde todavía:** Google devuelve 403 («the Gemini API free tier is not available for this project») con la key del proyecto sin facturación; el proyecto Stocky tiene el prepago sin créditos (402). Hay que decidir entre cargar un crédito pequeño o dejarlo apagado. Los registros de `changoPreguntar` ahora dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). La key actual es **temporal**: cambiarla por la definitiva (`firebase functions:secrets:set GEMINI_API_KEY`) y relanzar el despliegue.
-- **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de un agotado y pantalla del 771 para habilitar módulos al 772 · 4 elegir el tipo de archivo al importar · 5 resumen mensual automático · 6 editar dañados, traslados y entregas. Ver «Código pendiente».
-- **`main` incluye hasta el PR 11** y está desplegado en producción por GitHub Actions: Fase 3 (registros), Chango IA (PR 9), **pedidos y envíos a puestos** (PR 10) y **Vencimientos completo** (PR 11).
+- **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. Ver «Código pendiente».
+- **`main` incluye hasta el PR 24** (y el PR del punto 4 y 6 cuando se fusione) y está desplegado en producción por GitHub Actions: registros, pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados y módulos de la 772.
 - **Ningún PR abierto.**
-- **Las pantallas de los PR 10 y 11 nunca se probaron en el navegador** (solo tipos, lint, build, pruebas unitarias y pruebas contra el emulador de Firestore). Es lo primero que conviene hacer: abrir Hoy, Agenda → Pedidos y envíos, Reportes, Ajustes, la importación del PDF de lotes y Inventario → Vencimientos, en celular (360 px) y en PC.
+- **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar y la edición de dañados, traslados y entregas.
 - La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
 
 ## Construido
@@ -41,7 +41,7 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - PDF real de **consumos** (productos en despacho del 771) para el riesgo con datos reales. El de **lotes ya llegó** (`Rpt_VenceBodega`, 20/11/2026).
 - Lista completa de UD y su factor (solo `CN = 100` precargado; la tabla es editable).
 - Plan **Blaze** de Firebase: confirmar que está aceptado (Functions y Chango ya lo necesitan).
-- Si se cuenta también **por lote** en el conteo físico, y qué hacer con productos contados que no estén en SIFA (`CLAUDE.md` §13).
+- Contar **por lote** en el conteo físico (la primera versión es solo por producto; hace falta la muestra del reporte de lotes).
 - Días de los otros pedidos del RF-4.1: rayos X, odontología, laboratorio, vacunas, psicotrópicos, bajos (hoy no se precargan; se agregan a mano).
 - Si «pedidos tramitados» debe incluir también algo propio del 772 (se entendió como: el 772 ve la sección si el 771 le habilita los módulos).
 
@@ -55,11 +55,13 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 1. ~~**Conteo físico contra SIFA** (`CLAUDE.md` §13)~~ → hecho en el PR 23. Queda por probar en el navegador y, más adelante, contar **por lote** y filtrar **por ubicación** (cuando exista el módulo). El Excel pinta de gris con `xlsx-js-style` (sumado al stack) y además marca «(falta)»/«(sobra)» en texto.
 2. ~~**Reporte PDF/Excel «Bajos y riesgo»** (PRD §7)~~ → hecho en el PR 24 (Reportes → Bajos y riesgo, solo 771; sin probar en navegador).
 3. ~~**Alerta A8** · **alta manual de un agotado** · **pantalla del 771 para habilitar módulos al 772**~~ → hecho en el PR 24 (chip «Consumos sin actualizar» en Hoy; «Registrar a mano» en Agotados; Ajustes → Farmacia 772 y navegación de la 772 con Registros). Sin probar en navegador; la callable `cuentas772` se estrena al desplegar. Falta que la 772 vea Pedidos/Envíos/Ubicaciones en su navegación cuando se los habiliten (hoy solo Registros).
-4. **Elegir qué hacer con el archivo al importar** (cargar existencias, cargar lotes, actualizar consumos…): hoy Stocky detecta el tipo de reporte por su encabezado.
-5. **Resumen mensual automático** del último día hábil (requiere Function programada).
-6. **Editar** un dañado, un traslado o una entrega ya guardados; cantidades recibidas distintas de las enviadas; recordatorio de entregas sin recibir.
+4. ~~**Elegir qué hacer con el archivo al importar**~~ → hecho: Importar tiene el selector «¿Qué reporte es?» (Detectar solo, Existencias, Productos en despacho, Lotes y vencimientos); si el PDF no es del tipo elegido no se guarda nada y se avisa. Sin probar en el celular.
+~~5.~~ *(sin número, pendiente)*: ver abajo.
+6. ~~**Editar** un dañado, un traslado o una entrega ya guardados~~ → hecho: botón de lápiz en cada registro, con Deshacer (el formulario se abre con los datos y las cantidades vuelven a la UD del producto; al editar un traslado no se toca el trámite SAP/SIFA, y si cambia el tipo y el estado ya no corresponde vuelve a pendiente). **Siguen pendientes** las otras dos partes: cantidades recibidas distintas de las enviadas en traslados (cambia el modelo de datos) y el recordatorio de entregas sin recibir (requiere la Function programada).
 
 Sin número (quedan pendientes por ahora):
+- **Resumen mensual automático** del último día hábil (requiere Function programada).
+- Traslados: **cantidades recibidas distintas de las enviadas**, y **recordatorio de entregas sin recibir**.
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
 - Que **Chango conozca la agenda de pedidos y envíos y las ubicaciones** (hoy su contexto dice que no están disponibles; sí conoce lotes y vencimientos).
 - Vencimientos: que la proyección sume ingresos (imposible sin los lotes que entraron: el reporte real los trae).
@@ -79,7 +81,7 @@ Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el
 
 ## Para la próxima sesión
 
-1. Probar el **conteo físico** en el celular (crear un conteo con unos pocos productos, capturar sin conexión, exportar PDF y Excel) y corregir lo que salga.
-2. Seguir el orden de prioridad: **4 · elegir el tipo de archivo al importar**, luego el 5 (resumen mensual automático) y el 6 (editar dañados, traslados y entregas).
-3. Resolver con la persona usuaria lo de Chango (crédito o dejarlo apagado) y cambiar la key temporal.
+1. Probar en el celular lo nuevo (lista en «Dónde estamos») y corregir lo que salga.
+2. Resolver con la persona usuaria lo de Chango (crédito o dejarlo apagado) y cambiar la key temporal.
+3. Según lo que llegue: PDF de consumos → riesgo con datos reales; nombres de estantes → Ubicaciones. Si no, los pendientes sin número (resumen mensual automático, traslados recibidos distintos, Ubicaciones, Chango con la agenda).
 4. Antes de abrir un PR nuevo: partir de `main` actualizado (`git pull`), y si la rama queda apilada sobre otra que se fusiona con squash, rebasar con `git rebase --onto origin/main <último commit de la rama base>`.

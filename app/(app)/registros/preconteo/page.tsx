@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
@@ -14,7 +14,7 @@ import { Hoja } from '@/components/ui/Hoja';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
-import { borrarPreconteo, crearPreconteo, registrarRecepcion, restaurarPreconteo, suscribirPreconteos } from '@/lib/db/preconteos';
+import { actualizarPreconteo, borrarPreconteo, crearPreconteo, registrarRecepcion, restaurarPreconteo, suscribirPreconteos } from '@/lib/db/preconteos';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { formatearEnUD, formatearNumero } from '@/lib/domain/formato';
 import {
@@ -39,6 +39,7 @@ export default function Preconteo() {
   const [registros, setRegistros] = useState<RegistroPreconteo[] | undefined>(undefined);
   const [existencias, setExistencias] = useState<Existencia[]>([]);
   const [formulario, setFormulario] = useState(false);
+  const [editando, setEditando] = useState<RegistroPreconteo | null>(null);
   const [recibiendo, setRecibiendo] = useState<RegistroPreconteo | null>(null);
   const [mes, setMes] = useState(() => hoyCostaRica().slice(0, 7));
   const mesActual = hoyCostaRica().slice(0, 7);
@@ -64,6 +65,15 @@ export default function Preconteo() {
 
   function guardar(e: EntregaValida) {
     if (!uid) return;
+    if (editando) {
+      const previo = editando;
+      void actualizarPreconteo(uid, previo.id, e).catch(() => mostrar('No se pudo guardar el cambio.', { tono: 'error' }));
+      mostrar('Entrega actualizada.', {
+        tono: 'ok',
+        accion: { etiqueta: 'Deshacer', alPulsar: () => void restaurarPreconteo(uid, previo).catch(() => mostrar('No se pudo deshacer.', { tono: 'error' })) },
+      });
+      return;
+    }
     void crearPreconteo(uid, e).catch(() => mostrar('No se pudo guardar la entrega.', { tono: 'error' }));
     mostrar('Entrega registrada.', { tono: 'ok' });
   }
@@ -177,7 +187,7 @@ export default function Preconteo() {
             ) : (
               <ul className="flex flex-col gap-2">
                 {delMes.map((r) => (
-                  <FilaPreconteo key={r.id} r={r} nombre={descripcion(r.codigo)} cantidad={(b) => cantidad(r.codigo, b)} alBorrar={() => borrar(r)} />
+                  <FilaPreconteo key={r.id} r={r} nombre={descripcion(r.codigo)} cantidad={(b) => cantidad(r.codigo, b)} alEditar={() => setEditando(r)} alBorrar={() => borrar(r)} />
                 ))}
               </ul>
             )}
@@ -185,13 +195,23 @@ export default function Preconteo() {
         </>
       )}
 
-      <FormularioPreconteo abierta={formulario} alCerrar={() => setFormulario(false)} existencias={existencias} alGuardar={guardar} />
+      <FormularioPreconteo
+        key={editando?.id ?? 'nuevo'}
+        abierta={formulario || editando !== null}
+        alCerrar={() => {
+          setFormulario(false);
+          setEditando(null);
+        }}
+        existencias={existencias}
+        alGuardar={guardar}
+        inicial={editando ?? undefined}
+      />
       <HojaRecepcion registro={recibiendo} ud={recibiendo ? ud(recibiendo.codigo) : undefined} alCerrar={() => setRecibiendo(null)} alRecibir={recibir} />
     </Pantalla>
   );
 }
 
-function FilaPreconteo({ r, nombre, cantidad, alBorrar }: { r: RegistroPreconteo; nombre: string; cantidad: (base: number) => string; alBorrar: () => void }) {
+function FilaPreconteo({ r, nombre, cantidad, alEditar, alBorrar }: { r: RegistroPreconteo; nombre: string; cantidad: (base: number) => string; alEditar: () => void; alBorrar: () => void }) {
   const est = estadoPreconteo(r);
   const dif = diferenciaPreconteo(r);
   return (
@@ -201,9 +221,14 @@ function FilaPreconteo({ r, nombre, cantidad, alBorrar }: { r: RegistroPreconteo
           <span className="block font-mono text-xs text-text-muted">{r.codigo}</span>
           <span className="block text-sm">{nombre}</span>
         </span>
-        <button type="button" aria-label={`Borrar entrega ${r.codigo}`} onClick={alBorrar} className="grid size-11 shrink-0 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
-          <Trash2 aria-hidden className="size-4" />
-        </button>
+        <div className="flex shrink-0">
+          <button type="button" aria-label={`Editar entrega ${r.codigo}`} onClick={alEditar} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
+            <Pencil aria-hidden className="size-4" />
+          </button>
+          <button type="button" aria-label={`Borrar entrega ${r.codigo}`} onClick={alBorrar} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface-2">
+            <Trash2 aria-hidden className="size-4" />
+          </button>
+        </div>
       </div>
       <p className="text-xs text-text-muted">
         {fecha(r.fecha)} · entregado <span className="font-semibold text-text">{cantidad(r.cantidad)}</span> · de a {r.presentacion}

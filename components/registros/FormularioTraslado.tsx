@@ -8,7 +8,7 @@ import type { Existencia } from '@/lib/db/existencias';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { normalizarCodigo } from '@/lib/domain/codigos';
 import { formatearNumero } from '@/lib/domain/formato';
-import { ETIQUETA_TIPO_TRASLADO, validarTraslado, type TipoTraslado, type TrasladoValido } from '@/lib/domain/traslados';
+import { entradaDesdeTraslado, ETIQUETA_TIPO_TRASLADO, validarTraslado, type RegistroTraslado, type TipoTraslado, type TrasladoValido } from '@/lib/domain/traslados';
 import { aUnidadesBase, normalizarUD } from '@/lib/domain/unidades';
 import { BuscadorProducto } from './BuscadorProducto';
 
@@ -17,6 +17,8 @@ interface Props {
   alCerrar: () => void;
   existencias: readonly Existencia[];
   alGuardar: (t: TrasladoValido) => void;
+  /** Si viene, el formulario edita ese traslado en lugar de crear uno nuevo. */
+  inicial?: RegistroTraslado;
 }
 
 interface Linea {
@@ -26,13 +28,17 @@ interface Linea {
   descripcion: string;
 }
 
-export function FormularioTraslado({ abierta, alCerrar, existencias, alGuardar }: Props) {
-  const [orden, setOrden] = useState('');
-  const [tipo, setTipo] = useState<TipoTraslado>('envio');
-  const [unidad, setUnidad] = useState('');
-  const [fecha, setFecha] = useState(() => hoyCostaRica());
-  const [notas, setNotas] = useState('');
-  const [lineas, setLineas] = useState<Linea[]>([]);
+export function FormularioTraslado({ abierta, alCerrar, existencias, alGuardar, inicial }: Props) {
+  // Al editar, el formulario se monta con los datos del registro (la pantalla le pone `key` por registro).
+  const previo = inicial ? entradaDesdeTraslado(inicial, (c) => existencias.find((e) => e.codigo === c)?.ud) : null;
+  const [orden, setOrden] = useState(previo?.ordenSAP ?? '');
+  const [tipo, setTipo] = useState<TipoTraslado>(previo?.tipo ?? 'envio');
+  const [unidad, setUnidad] = useState(previo?.unidad ?? '');
+  const [fecha, setFecha] = useState(() => previo?.fecha ?? hoyCostaRica());
+  const [notas, setNotas] = useState(previo?.notas ?? '');
+  const [lineas, setLineas] = useState<Linea[]>(() =>
+    (previo?.items ?? []).map((i) => ({ codigo: i.codigo, ud: i.ud, cantidad: i.cantidad, descripcion: existencias.find((e) => e.codigo === i.codigo)?.descripcion ?? '' })),
+  );
   const [consulta, setConsulta] = useState('');
   const [producto, setProducto] = useState<Existencia | null>(null);
   const [cantidad, setCantidad] = useState('');
@@ -73,7 +79,7 @@ export function FormularioTraslado({ abierta, alCerrar, existencias, alGuardar }
   }
 
   return (
-    <Hoja abierta={abierta} alCerrar={alCerrar} titulo="Registrar traslado">
+    <Hoja abierta={abierta} alCerrar={alCerrar} titulo={inicial ? 'Editar traslado' : 'Registrar traslado'}>
       <div className="flex flex-col gap-3">
         <div role="group" aria-label="Tipo de traslado" className="flex gap-2">
           {(['envio', 'recepcion'] as const).map((t) => (

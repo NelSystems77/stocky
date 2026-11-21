@@ -1,6 +1,6 @@
 import { esCodigoValido, normalizarCodigo } from './codigos';
 import type { FechaISO } from './types';
-import { aUnidadesBase, TABLA_UD_INICIAL, type TablaUD } from './unidades';
+import { aUnidadesBase, deUnidadesBase, normalizarUD, TABLA_UD_INICIAL, type TablaUD } from './unidades';
 
 export type TipoTraslado = 'envio' | 'recepcion';
 export type EstadoTraslado = 'pendiente' | 'recibido' | 'enviado';
@@ -170,4 +170,38 @@ export function totalesTraslados(registros: readonly RegistroTraslado[]): Totale
     if (!esPendiente(r) && !tramiteCompleto(r)) t.tramitePendiente += 1;
   }
   return t;
+}
+
+/**
+ * Un traslado ya guardado como lo escribió la persona, para editarlo: cada cantidad vuelve a la UD del producto
+ * (`udDe` da la UD según el último reporte; sin ella queda en unidades sueltas). Es la inversa de `validarTraslado`.
+ */
+export function entradaDesdeTraslado(
+  t: Pick<RegistroTraslado, 'fecha' | 'ordenSAP' | 'tipo' | 'unidad' | 'items' | 'notas'>,
+  udDe: (codigo: string) => string | undefined,
+  tabla: TablaUD = TABLA_UD_INICIAL,
+): EntradaTraslado {
+  return {
+    fecha: t.fecha,
+    ordenSAP: t.ordenSAP,
+    tipo: t.tipo,
+    unidad: t.unidad,
+    items: t.items.map((i) => {
+      const ud = normalizarUD(udDe(i.codigo) ?? 'UN');
+      return { codigo: i.codigo, ud, cantidad: deUnidadesBase(i.cantidad, ud, tabla) };
+    }),
+    notas: t.notas,
+  };
+}
+
+/**
+ * Campos que se escriben al editar un traslado. El trámite SAP/SIFA no se toca. Si cambió el tipo y el estado ya no
+ * corresponde (una recepción no está «enviada»), vuelve a pendiente; si no, conserva su estado y su fecha de cierre.
+ */
+export function camposEditadosTraslado(
+  actual: Pick<RegistroTraslado, 'estado' | 'fechaCierre'>,
+  nuevo: TrasladoValido,
+): TrasladoValido & { estado: EstadoTraslado; fechaCierre: FechaISO | null } {
+  const conserva = estadosValidos(nuevo.tipo).includes(actual.estado);
+  return { ...nuevo, estado: conserva ? actual.estado : 'pendiente', fechaCierre: conserva ? actual.fechaCierre : null };
 }

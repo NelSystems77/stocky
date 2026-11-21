@@ -366,3 +366,15 @@ La persona usuaria fijó el orden de prioridad y el conteo físico quedó primer
 - **Corrección al conteo físico (PR 23):** la 772 tiene `inventario` de base en las reglas, y los conteos usaban ese permiso, así que podía crearlos. Ahora las reglas de `conteos` y `lineas` son solo del 771 y el superadmin (verificado contra el emulador: 771 crea, 772 recibe 403) y el enlace «Conteo físico» no se muestra a la 772.
 - **Pruebas:** A8 (borde de 8 días, entre meses, sin carga, fecha futura), validación del alta manual (código, fecha futura, duplicado abierto, tope de observaciones) y módulos visibles de Registros según la unidad. **Pantallas sin probar en navegador.**
 
+## 2026-11-21 · Puntos 4 y 6: tipo de archivo al importar y editar registros
+
+- **Tipo de archivo (punto 4):** Importar tiene el selector **«¿Qué reporte es?»** con cuatro opciones: *Detectar solo* (por defecto, como antes), *Existencias de despacho*, *Productos en despacho (consumos)* y *Lotes y vencimientos*. El PDF se sigue leyendo en el navegador; el encabezado se detecta siempre y, si la persona eligió un tipo distinto del detectado, **no se guarda nada** y se muestra cuál eligió y cuál es el PDF. Un PDF no reconocido nunca pasa. Así no se carga un reporte como si fuera otro.
+- **Editar (punto 6):** dañados, traslados y entregas de preconteo se editan con un botón de lápiz que abre el mismo formulario con los datos. **Deshacer** devuelve el registro como estaba. Las reglas de Firestore ya validaban las actualizaciones: no cambiaron.
+  - **Cantidades:** se guardan en unidades base; al editar vuelven a la UD del producto (`20000` → `200 CN`; sin UD conocida, unidades sueltas) y al guardar se convierten otra vez, sin cambiar lo que no se tocó.
+  - **Traslados:** el trámite SAP/SIFA no se toca. Si se cambia el tipo (envío ↔ recepción) y el estado ya no corresponde, vuelve a pendiente y sin fecha de cierre.
+  - **Entregas de preconteo:** lo recibido (`recibida`) no se toca; la diferencia se recalcula con la cantidad nueva.
+  - **Dañados:** la foto se conserva; si se elige otra al editar, reemplaza la anterior (misma ruta en Storage).
+- **Quedan pendientes (parte del punto 6):** cantidades recibidas distintas de las enviadas en traslados (cambia el modelo de datos: cada producto necesitaría su cantidad recibida) y el recordatorio de entregas sin recibir (requiere la Function programada).
+- **El punto 5 (resumen mensual automático) quedó sin número**, pendiente.
+- **Pruebas:** selector (detección de los tres reportes, elección correcta, elección distinta, no reconocido) y edición (ida y vuelta de las cantidades, estado del traslado al cambiar el tipo, el trámite no se toca). **Pantallas sin probar en el celular.**
+

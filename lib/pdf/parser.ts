@@ -18,7 +18,8 @@ function numero(texto: string): number {
   return Number.parseFloat(texto.replaceAll(',', ''));
 }
 
-function detectarTipo(texto: string): TipoReporte | null {
+/** Tipo de reporte de despacho (existencias o productos en despacho) según su encabezado; `null` si no es ninguno. */
+export function detectarTipoReporte(texto: string): TipoReporte | null {
   const t = sinAcentos(texto).toLowerCase();
   if (t.includes('rpt_existenciasdespacho') || t.includes('reporte de existencias de despacho')) {
     return 'existenciasDespacho';
@@ -94,7 +95,7 @@ function leerTotal(lineas: readonly string[]): number | null {
  */
 export function parsearReporte(lineas: readonly string[]): ResultadoReporte {
   const todo = lineas.join('\n');
-  const tipo = detectarTipo(todo);
+  const tipo = detectarTipoReporte(todo);
   if (!tipo) {
     throw new ErrorReporte('No reconozco este reporte. Sube el PDF de existencias de despacho o de productos en despacho.');
   }

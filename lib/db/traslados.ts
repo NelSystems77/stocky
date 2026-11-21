@@ -1,7 +1,7 @@
 import { collection, deleteDoc, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, type Unsubscribe } from 'firebase/firestore';
 import { z } from 'zod';
 import type { FechaISO } from '@/lib/domain/types';
-import { cerrarTraslado, type RegistroTraslado, type TrasladoValido } from '@/lib/domain/traslados';
+import { camposEditadosTraslado, cerrarTraslado, type RegistroTraslado, type TrasladoValido } from '@/lib/domain/traslados';
 import { firestore } from '@/lib/firebase';
 import { registrarEscritura } from './sync';
 
@@ -45,6 +45,11 @@ export function crearTraslado(uid: string, t: TrasladoValido): Promise<void> {
   return registrarEscritura(
     setDoc(ref(uid, id), { ...t, estado: 'pendiente', fechaCierre: null, enSAP: false, enSIFA: false, creadoEn: serverTimestamp() }),
   );
+}
+
+/** Corrige un traslado ya guardado. No toca el trámite SAP/SIFA; si el tipo cambió, el estado se ajusta (ver `camposEditadosTraslado`). */
+export function actualizarTraslado(uid: string, actual: RegistroTraslado, t: TrasladoValido): Promise<void> {
+  return registrarEscritura(updateDoc(ref(uid, actual.id), camposEditadosTraslado(actual, t)));
 }
 
 /** Restaura un registro borrado (Deshacer) con el mismo id. */
