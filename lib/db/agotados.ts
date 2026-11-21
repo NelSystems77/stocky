@@ -1,6 +1,6 @@
-import { collection, doc, onSnapshot, serverTimestamp, updateDoc, writeBatch, type Unsubscribe } from 'firebase/firestore';
+import { collection, doc, onSnapshot, serverTimestamp, setDoc, updateDoc, writeBatch, type Unsubscribe } from 'firebase/firestore';
 import { z } from 'zod';
-import type { RegistroAgotado } from '@/lib/domain/agotados';
+import type { AgotadoManualValido, RegistroAgotado } from '@/lib/domain/agotados';
 import type { FechaISO } from '@/lib/domain/types';
 import { firestore } from '@/lib/firebase';
 import { registrarEscritura } from './sync';
@@ -60,4 +60,18 @@ export function cerrarAgotados(uid: string, cierres: readonly { id: string; fech
 
 export function guardarNotas(uid: string, id: string, notas: string): Promise<void> {
   return registrarEscritura(updateDoc(doc(firestore(), `${coleccion(uid)}/${id}`), { notas: notas.slice(0, 500) }));
+}
+
+/** Alta manual de un agotado: queda abierto (sin fecha de ingreso) hasta que un reporte posterior traiga existencia. */
+export function crearAgotadoManual(uid: string, v: AgotadoManualValido): Promise<void> {
+  return registrarEscritura(
+    setDoc(doc(firestore(), `${coleccion(uid)}/${crypto.randomUUID()}`), {
+      codigo: v.codigo,
+      fechaAgotado: v.fechaAgotado,
+      fechaIngreso: null,
+      origen: 'manual',
+      notas: v.notas,
+      creadoEn: serverTimestamp(),
+    }),
+  );
 }

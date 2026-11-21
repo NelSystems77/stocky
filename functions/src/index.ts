@@ -132,6 +132,30 @@ export const habilitarModulos = onCall(async (req) => {
   return { modulos };
 });
 
+/**
+ * Cuentas de la farmacia 772 para el 771 (y el superadmin): solo lo necesario para habilitarles módulos
+ * (nombre, si está activa y qué módulos tiene). Los clientes no pueden listar `usuarios`: solo esta Function.
+ */
+export const cuentas772 = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para continuar.');
+  const rol = req.auth.token['role'];
+  const esSuper = rol === 'superadmin';
+  const es771 = rol === 'usuario' && req.auth.token['unidad'] === '771';
+  if (!esSuper && !es771) throw new HttpsError('permission-denied', 'No tienes permiso para ver las cuentas de la farmacia.');
+
+  const snap = await getFirestore().collection('usuarios').where('unidad', '==', '772').get();
+  const cuentas = snap.docs.map((d) => {
+    const modulos = d.get('modulosHabilitados');
+    return {
+      uid: d.id,
+      nombre: String(d.get('nombre') ?? ''),
+      activo: d.get('activo') !== false,
+      modulosHabilitados: Array.isArray(modulos) ? modulos.filter((m): m is string => typeof m === 'string') : [],
+    };
+  });
+  return { cuentas: cuentas.sort((a, b) => a.nombre.localeCompare(b.nombre)) };
+});
+
 const URL_APP = 'https://stocky-bbda4.web.app';
 const TOKENS_INVALIDOS = ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'];
 

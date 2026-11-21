@@ -82,10 +82,12 @@ export default function Inventario() {
           <CalendarClock aria-hidden className="size-4" />
           Vencimientos y lotes
         </Link>
-        <Link href="/inventario/conteo/" className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
-          <ClipboardCheck aria-hidden className="size-4" />
-          Conteo físico
-        </Link>
+        {estado.fase === 'listo' && estado.sesion.unidad !== '772' && (
+          <Link href="/inventario/conteo/" className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-surface-2 px-4 text-sm font-semibold text-accent">
+            <ClipboardCheck aria-hidden className="size-4" />
+            Conteo físico
+          </Link>
+        )}
       </div>
       {lista === undefined && (
         <Card role="status" className="animate-pulse text-center text-sm text-text-muted">

@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { useModulosHabilitados } from '@/lib/auth/useModulosHabilitados';
 import { itemsPara } from './itemsNavegacion';
 
 function useItems() {
   const { estado } = useAuth();
+  const habilitados = useModulosHabilitados();
   if (estado.fase !== 'listo') return [];
-  return itemsPara(estado.sesion.unidad, estado.sesion.rol === 'superadmin');
+  return itemsPara(estado.sesion.unidad, estado.sesion.rol === 'superadmin', habilitados);
 }
 
 const activo = (ruta: string, href: string) => ruta === href || ruta.startsWith(href);

@@ -2,22 +2,25 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, Check, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { FormularioAgotadoManual } from '@/components/agotados/FormularioAgotadoManual';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { BotonesExportar } from '@/components/reportes/BotonesExportar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Hoja } from '@/components/ui/Hoja';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { cerrarAgotados, confirmarAgotados, guardarNotas, suscribirAgotados } from '@/lib/db/agotados';
+import { cerrarAgotados, confirmarAgotados, crearAgotadoManual, guardarNotas, suscribirAgotados } from '@/lib/db/agotados';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import {
   diasAgotado,
   proponerAgotados,
   registrosACerrar,
   separarRegistros,
+  type AgotadoManualValido,
   type ProductoStock,
   type RegistroAgotado,
 } from '@/lib/domain/agotados';
@@ -48,6 +51,7 @@ export default function Agotados() {
   const hoy = hoyCostaRica();
   const cerrando = useRef(new Set<string>());
   const [tipoPeriodo, setTipoPeriodo] = useState<TipoPeriodo>('mes');
+  const [manual, setManual] = useState(false);
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
 
@@ -83,6 +87,13 @@ export default function Agotados() {
       items.map((p) => ({ codigo: p.codigo, fechaAgotado: p.fechaReporte })),
     ).catch(() => mostrar('No se pudo guardar el registro.', { tono: 'error' }));
     mostrar(items.length === 1 ? 'Agotado registrado.' : `${items.length} agotados registrados.`, { tono: 'ok' });
+  }
+
+  function registrarManual(v: AgotadoManualValido) {
+    if (!uid) return;
+    void crearAgotadoManual(uid, v).catch(() => mostrar('No se pudo guardar el registro.', { tono: 'error' }));
+    mostrar('Agotado registrado.', { tono: 'ok' });
+    setManual(false);
   }
 
   function guardar(id: string, notas: string) {
@@ -141,7 +152,13 @@ export default function Agotados() {
           )}
 
           <section aria-label="Agotados activos" className="flex flex-col gap-2">
-            <h2 className="text-lg font-semibold">Activos ({activos.length})</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Activos ({activos.length})</h2>
+              <Button variante="secundario" onClick={() => setManual(true)}>
+                <Plus aria-hidden className="size-4" />
+                Registrar a mano
+              </Button>
+            </div>
             {activos.length === 0 ? (
               <p className="text-sm text-text-muted">No hay agotados registrados.</p>
             ) : (
@@ -214,6 +231,10 @@ export default function Agotados() {
           )}
         </>
       )}
+
+      <Hoja abierta={manual} alCerrar={() => setManual(false)} titulo="Registrar un agotado">
+        <FormularioAgotadoManual existencias={existencias ?? []} registros={registros ?? []} hoy={hoy} alGuardar={registrarManual} />
+      </Hoja>
     </Pantalla>
   );
 }

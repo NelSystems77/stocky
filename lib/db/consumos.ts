@@ -1,5 +1,6 @@
 import { collection, limit, onSnapshot, orderBy, query, where, type Unsubscribe } from 'firebase/firestore';
 import { z } from 'zod';
+import { hoyCostaRica } from '@/lib/domain/calendario';
 import type { ConsumoImportado } from '@/lib/domain/riesgo';
 import { firestore } from '@/lib/firebase';
 
@@ -56,4 +57,20 @@ export function suscribirConsumosRecientes(uid: string, alCambiar: (porCodigo: M
     bajaImportaciones();
     bajaConsumos?.();
   };
+}
+
+/**
+ * Fecha del reporte «Productos en despacho» más reciente (`null` si nunca se cargó), para la alerta A8.
+ * Usa la misma consulta que las cargas de consumo (sin índice nuevo): importaciones recientes filtradas aquí.
+ */
+export function suscribirUltimaCargaConsumos(uid: string, alCambiar: (fecha: string | null) => void): Unsubscribe {
+  return onSnapshot(
+    query(collection(firestore(), `usuarios/${uid}/importaciones`), orderBy('fechaReporte', 'desc'), limit(REVISAR)),
+    (snap) => {
+      const d = snap.docs.find((x) => x.get('tipoReporte') === 'productosEnDespacho');
+      const f = d?.get('fechaReporte') as { toDate?: () => Date } | undefined;
+      alCambiar(f?.toDate ? hoyCostaRica(f.toDate()) : null);
+    },
+    () => alCambiar(null),
+  );
 }
