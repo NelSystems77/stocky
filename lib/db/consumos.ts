@@ -21,7 +21,8 @@ const ConsumoSchema = z.object({
 export function suscribirConsumosRecientes(uid: string, alCambiar: (porCodigo: Map<string, ConsumoImportado[]>) => void): Unsubscribe {
   const base = `usuarios/${uid}`;
   let bajaConsumos: Unsubscribe | undefined;
-  let clave = '';
+  // `null` = todavía no se avisó nunca: así, sin ninguna carga de consumos (clave vacía) también se avisa la primera vez.
+  let clave: string | null = null;
 
   const bajaImportaciones = onSnapshot(
     query(collection(firestore(), `${base}/importaciones`), orderBy('fechaReporte', 'desc'), limit(REVISAR)),
