@@ -4,12 +4,13 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ArrowLeft, Search, Upload } from 'lucide-react';
 import Link from 'next/link';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState, useSyncExternalStore } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { BotonesExportar } from '@/components/reportes/BotonesExportar';
 import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { FilaLote } from '@/components/vencimientos/FilaLote';
+import { DiferenciasSifa } from '@/components/vencimientos/DiferenciasSifa';
 import { HistorialCargas } from '@/components/vencimientos/HistorialCargas';
 import { HojaGestionar } from '@/components/vencimientos/HojaGestionar';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -20,8 +21,16 @@ import { reporteVencimientos } from '@/lib/reports/construir';
 import { useVencimientos } from '@/lib/vencimientos/useVencimientos';
 
 type Filtro = 'urgentes' | 'medias' | 'todos' | 'gestionados';
-type Pestana = 'lotes' | 'historial';
+type Pestana = 'lotes' | 'diferencias' | 'historial';
 const PAGINA = 40;
+
+/** El chip de Hoy enlaza a `#diferencias`: se lee el hash sin efectos (en el servidor no hay hash). */
+const suscribirHash = (alCambiar: () => void) => {
+  window.addEventListener('hashchange', alCambiar);
+  return () => window.removeEventListener('hashchange', alCambiar);
+};
+const leerHash = () => window.location.hash;
+const hashEnServidor = () => '';
 
 const fecha = (f: string) => format(parseISO(f), "d 'de' MMM yyyy", { locale: es });
 
@@ -29,7 +38,9 @@ export default function Vencimientos() {
   const v = useVencimientos();
   const { estado } = useAuth();
   const { mostrar } = useToast();
-  const [pestana, setPestana] = useState<Pestana>('lotes');
+  const hash = useSyncExternalStore(suscribirHash, leerHash, hashEnServidor);
+  const [elegida, setPestana] = useState<Pestana | null>(null);
+  const pestana: Pestana = elegida ?? (hash === '#diferencias' ? 'diferencias' : 'lotes');
   const [filtro, setFiltro] = useState<Filtro | null>(null);
   const [consulta, setConsulta] = useState('');
   const [visibles, setVisibles] = useState(PAGINA);
@@ -85,7 +96,8 @@ export default function Vencimientos() {
         {(
           [
             ['lotes', 'Lotes'],
-            ['historial', 'Historial de cargas'],
+            ['diferencias', v.sifa.total > 0 ? `Diferencias con SIFA (${v.sifa.total})` : 'Diferencias con SIFA'],
+            ['historial', 'Historial'],
           ] as const
         ).map(([id, etiqueta]) => (
           <button
@@ -94,7 +106,7 @@ export default function Vencimientos() {
             type="button"
             aria-selected={pestana === id}
             onClick={() => setPestana(id)}
-            className={`min-h-11 flex-1 rounded-2xl text-sm transition duration-200 ${pestana === id ? 'bg-surface-2 font-semibold text-accent' : 'text-text-muted'}`}
+            className={`min-h-11 flex-1 rounded-2xl px-1 text-xs transition duration-200 sm:text-sm ${pestana === id ? 'bg-surface-2 font-semibold text-accent' : 'text-text-muted'}`}
           >
             {etiqueta}
           </button>
@@ -102,6 +114,15 @@ export default function Vencimientos() {
       </div>
 
       {pestana === 'historial' && <HistorialCargas uid={uid} />}
+
+      {pestana === 'diferencias' &&
+        (v.cargando ? (
+          <p role="status" className="animate-pulse text-center text-sm text-text-muted">
+            Cargando…
+          </p>
+        ) : (
+          <DiferenciasSifa sifa={v.sifa} hayLotes={v.lotes.length > 0} />
+        ))}
 
       {pestana === 'lotes' && v.cargando && (
         <Card role="status" className="animate-pulse text-center text-sm text-text-muted">

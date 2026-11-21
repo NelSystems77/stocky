@@ -53,6 +53,7 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
 - **Conteo físico contra SIFA** (`CLAUDE.md` §13, fuera del PRD): se construye después del consolidado de Inventario.
 - Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
+- Aviso **push** cuando aparezca una diferencia nueva entre lotes y existencias (se descartó por ahora: solo pantalla y chip).
 - Alerta **A8** (reporte desactualizado, más de 8 días sin consumos).
 - **Alta manual de un agotado** (RF-3.4).
 - Pantalla para que el **771 habilite módulos al 772** y navegación del 772 con esos módulos (la callable ya existe; la UI solo está en `/admin`).
@@ -67,7 +68,7 @@ Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el
 
 - Antes de dar algo por terminado: `npm run lint`, `npm run test`, `npm run build` y `npm --prefix functions run build`.
 - **Emulador de Firestore** (hay Firebase CLI y Java instalados): `firebase emulators:start --only firestore --project stocky-bbda4`. Para reglas se puede hablar por REST con un token sin firma (`alg: none`, con `role` y `unidad` como claims); para la Function programada, importar `functions/lib/tick.js` con `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`. Limpiar datos: `DELETE http://127.0.0.1:8080/emulator/v1/projects/stocky-bbda4/databases/(default)/documents`. Para detenerlo, terminar solo el proceso que escucha en el puerto 8080 (no todos los `java`).
-- El PDF real de lotes **no está en el repositorio**: para verificar el lector, `STOCKY_PDF_DIR=/carpeta npm run test` con `rpt_vencebodega.pdf` dentro.
+- Los PDF reales **no están en el repositorio**: para verificar los lectores, `STOCKY_PDF_DIR=/carpeta npm run test` con `rpt_vencebodega.pdf` y `rpt_existenciasdespacho20112026.pdf` dentro.
 - Los scripts de prueba contra emulador son desechables y van fuera del repositorio (no hay dependencia de pruebas de reglas; agregarla requiere justificarla).
 - `scripts/copiar-dominio.mjs` copia a `functions/src/dominio/` la lógica pura que usa la Function; si un archivo nuevo de `lib/domain` lo necesita, agregarlo a su lista.
 

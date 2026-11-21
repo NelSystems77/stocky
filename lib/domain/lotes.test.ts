@@ -3,6 +3,7 @@ import type { FilaLote } from '@/lib/pdf/lotes';
 import {
   compararLotes,
   detalleDeCambios,
+  diferenciasConSifa,
   idVencidoDeLote,
   cuadrarConExistencias,
   esMedicamento,
@@ -300,6 +301,50 @@ describe('detalleDeCambios', () => {
   });
   it('la primera carga no se detalla (todo sería nuevo)', () => {
     expect(detalleDeCambios(compararLotes([], [lote()]), false)).toEqual([]);
+  });
+});
+
+describe('diferenciasConSifa (permanentes)', () => {
+  const FECHA = '2026-11-20';
+  const existencia = (codigo: string, existencia: number, fecha = FECHA) => ({ codigo, ud: 'TU', descripcion: `P ${codigo}`, existencia, fecha });
+  const lotes = (...l: Partial<LoteGuardado>[]) => l.map((x) => guardado({ ultimaVez: FECHA, ...x }));
+
+  it('detecta la diferencia del fusidato (154 en lotes contra 233 en SIFA)', () => {
+    const l = lotes(
+      { codigo: '110-46-2660', ud: 'TU', lote: '051037', cantidad: 133 },
+      { codigo: '110-46-2660', ud: 'TU', lote: '051038', cantidad: 21 },
+      { codigo: '110-16-0010', lote: 'OK', cantidad: 500 },
+    );
+    const r = diferenciasConSifa(l, [existencia('110-46-2660', 233), existencia('110-16-0010', 500)]);
+    expect(r.comparable).toBe(true);
+    expect(r.cuadre?.diferencias).toEqual([{ codigo: '110-46-2660', descripcion: 'P 110-46-2660', ud: 'TU', lotes: 154, existencia: 233 }]);
+    expect(r.cuadre?.coinciden).toBe(1);
+    expect(r.total).toBe(1);
+  });
+  it('cuenta también lo que tiene existencia y ningún lote, y lo que tiene lotes sin existencia guardada', () => {
+    const r = diferenciasConSifa(lotes({ codigo: '110-16-0010', cantidad: 500 }, { codigo: '227-02-0140', lote: 'X', cantidad: 10 }), [existencia('110-16-0010', 500), existencia('110-13-0003', 40)]);
+    expect(r.cuadre?.sinLotes.map((x) => x.codigo)).toEqual(['110-13-0003']);
+    expect(r.cuadre?.sinExistencia).toEqual(['227-02-0140']);
+    expect(r.total).toBe(2);
+  });
+  it('si las fechas no coinciden no compara (el consumo entre reportes no es un error)', () => {
+    const r = diferenciasConSifa(lotes({ cantidad: 500 }), [existencia('110-16-0010', 300, '2026-11-27')]);
+    expect(r).toMatchObject({ comparable: false, cuadre: null, total: 0, fechaLotes: FECHA, fechaExistencias: '2026-11-27' });
+  });
+  it('sin lotes o sin existencias no es comparable', () => {
+    expect(diferenciasConSifa([], [existencia('110-16-0010', 1)]).comparable).toBe(false);
+    expect(diferenciasConSifa(lotes({ cantidad: 1 }), []).comparable).toBe(false);
+  });
+  it('los lotes gestionados cuentan (el reporte los sigue trayendo); los agotados no', () => {
+    const l = lotes({ lote: 'A', cantidad: 300, estado: 'gestionado' }, { lote: 'B', cantidad: 200 }, { lote: 'C', cantidad: 0, estado: 'agotado' });
+    const r = diferenciasConSifa(l, [existencia('110-16-0010', 500)]);
+    expect(r.total).toBe(0);
+    expect(r.cuadre?.coinciden).toBe(1);
+  });
+  it('usa la fecha de existencias más reciente entre productos', () => {
+    const r = diferenciasConSifa(lotes({ cantidad: 5 }), [existencia('110-16-0010', 5, '2026-11-13'), existencia('110-13-0003', 1, FECHA)]);
+    expect(r.fechaExistencias).toBe(FECHA);
+    expect(r.comparable).toBe(true);
   });
 });
 

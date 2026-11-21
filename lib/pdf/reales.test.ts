@@ -6,7 +6,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extraerLineas } from './leerPdf';
-import { lotesDesdeFilas } from '@/lib/domain/lotes';
+import { consolidarFilas } from '@/lib/domain/consolidado';
+import { cuadrarConExistencias, lotesDesdeFilas } from '@/lib/domain/lotes';
 import { parsearLotes } from './lotes';
 import { parsearReporte } from './parser';
 
@@ -54,4 +55,21 @@ describe.skipIf(!dir)('PDF reales de SIFA', () => {
     expect(lotesDesdeFilas(r.filas)).toHaveLength(548);
     expect(r.filas.find((f) => f.codigo === '110-16-0010')).toMatchObject({ lote: '250242', vence: '2030-02-18', existencia: 4256.8 });
   }, 60_000);
+
+  it('lotes y existencias del 20/11/2026 se cruzan: 436 coinciden y 1 difiere (fusidato, 154 contra 233)', async () => {
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const leerLineas = async (nombre: string) => extraerLineas(pdfjs as never, new Uint8Array(readFileSync(join(dir!, nombre))));
+    const existencias = parsearReporte(await leerLineas('rpt_existenciasdespacho20112026.pdf'));
+    expect(existencias.tipo).toBe('existenciasDespacho');
+    expect(existencias.fechaReporte).toBe('2026-11-20');
+    expect(existencias.filas).toHaveLength(1039);
+    expect(existencias.advertencias).toEqual([]);
+    const lotes = lotesDesdeFilas(parsearLotes(await leerLineas('rpt_vencebodega.pdf')).filas);
+    const c = cuadrarConExistencias(lotes, consolidarFilas(existencias.filas));
+    expect(c.coinciden).toBe(436);
+    expect(c.sinLotes).toEqual([]);
+    expect(c.sinExistencia).toEqual([]);
+    expect(c.diferencias).toEqual([{ codigo: '110-46-2660', descripcion: expect.stringMatching(/^FUSIDATO SODICO/), ud: 'TU', lotes: 154, existencia: 233 }]);
+  }, 120_000);
 });
+
