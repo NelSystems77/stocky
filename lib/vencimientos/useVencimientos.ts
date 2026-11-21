@@ -6,7 +6,7 @@ import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirLotes } from '@/lib/db/lotes';
 import { suscribirUsuario } from '@/lib/db/usuario';
 import { hoyCostaRica } from '@/lib/domain/calendario';
-import { ultimaCargaLotes, type LoteGuardado } from '@/lib/domain/lotes';
+import { diferenciasConSifa, ultimaCargaLotes, type DiferenciasSifa, type LoteGuardado } from '@/lib/domain/lotes';
 import {
   evaluarVencimientos,
   ingresosSinSumar,
@@ -35,6 +35,8 @@ export interface EstadoVencimientos {
   ajustados: Map<string, number>;
   /** Segundos sábados (ingresos) desde la última carga que la proyección no suma. */
   ingresosSinSumar: string[];
+  /** Diferencias permanentes entre los lotes y las existencias de SIFA guardadas. */
+  sifa: DiferenciasSifa;
   umbrales: UmbralesVencimiento;
   existencias: Existencia[];
   hoy: string;
@@ -93,6 +95,10 @@ export function useVencimientos(): EstadoVencimientos {
       excesoReal,
       ajustados,
       ingresosSinSumar: ingresosSinSumar(ultimaCarga, hoy),
+      sifa: diferenciasConSifa(
+        guardados,
+        (existencias ?? []).map((e) => ({ codigo: e.codigo, ud: e.ud, descripcion: e.descripcion, existencia: e.existencia, fecha: hoyCostaRica(e.actualizadoEn.toDate()) })),
+      ),
       umbrales: ajustes.umbrales,
       existencias: existencias ?? [],
       hoy,

@@ -246,6 +246,35 @@ export function cuadrarConExistencias(lotes: readonly Lote[], existencias: reado
   };
 }
 
+export interface DiferenciasSifa {
+  /** Fecha de la última carga de lotes y del último reporte de existencias guardados. */
+  fechaLotes: FechaISO | null;
+  fechaExistencias: FechaISO | null;
+  /** Solo se pueden comparar si ambos reportes son de la misma fecha: de lo contrario el consumo y los ingresos entre uno y otro generan diferencias que no son errores. */
+  comparable: boolean;
+  /** `null` si no es comparable. */
+  cuadre: CuadreExistencias | null;
+  /** Productos que requieren revisar: suma de lotes distinta de la existencia + con existencia y sin lotes + con lotes y sin existencia. 0 si no es comparable. */
+  total: number;
+}
+
+/**
+ * Diferencias **permanentes** entre los lotes guardados y las existencias de SIFA guardadas (no solo en la vista previa de
+ * la importación). Se comparan las cantidades de la última carga de lotes (incluidos los gestionados: el reporte los sigue
+ * trayendo mientras tengan existencia) contra el último reporte de existencias, solo si son de la misma fecha.
+ */
+export function diferenciasConSifa(
+  lotes: readonly LoteGuardado[],
+  existencias: readonly (ExistenciaBase & { fecha: FechaISO })[],
+): DiferenciasSifa {
+  const fechaLotes = ultimaCargaLotes(lotes);
+  const fechaExistencias = existencias.reduce<FechaISO | null>((m, e) => (m === null || e.fecha > m ? e.fecha : m), null);
+  const comparable = fechaLotes !== null && fechaExistencias !== null && fechaLotes === fechaExistencias;
+  if (!comparable) return { fechaLotes, fechaExistencias, comparable: false, cuadre: null, total: 0 };
+  const cuadre = cuadrarConExistencias(lotes.filter((l) => l.estado !== 'agotado' && l.cantidad > 0), existencias);
+  return { fechaLotes, fechaExistencias, comparable: true, cuadre, total: cuadre.diferencias.length + cuadre.sinLotes.length + cuadre.sinExistencia.length };
+}
+
 /** Qué conviene avisar sobre la fecha del reporte frente a lo ya cargado. */
 export function revisarFechaCarga(fechaReporte: FechaISO | null, ultimaCarga: FechaISO | null): { nivel: 'ok' | 'aviso' | 'bloqueo'; mensaje: string | null } {
   if (fechaReporte === null) return { nivel: 'aviso', mensaje: 'El reporte no trae fecha; se usará la de hoy.' };

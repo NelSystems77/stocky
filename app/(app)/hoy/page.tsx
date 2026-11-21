@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, PackageMinus, PackageX, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, PackageMinus, PackageX, Scale, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
@@ -64,6 +64,8 @@ export default function Hoy() {
   const venc = useVencimientos();
   // `null` mientras carga o si aún no hay lotes cargados.
   const vencimientos = venc.cargando || venc.lotes.length === 0 ? null : contarUrgentes(venc.resumen);
+  // Lotes contra existencias de SIFA: `null` si no se pueden comparar (faltan reportes o son de distinta fecha).
+  const diferenciasLotes = venc.cargando || !venc.sifa.comparable ? null : venc.sifa.total;
 
   const { riesgos, hayConsumos } = useRiesgo(existencias);
 
@@ -102,6 +104,7 @@ export default function Hoy() {
         <ChipAlerta href="/inventario/agotados/" etiqueta="Agotados" valor={conteos.agotados} tono="critical" icono={PackageX} />
         <ChipAlerta href="/inventario/" etiqueta="Bajos" valor={conteos.bajos} tono="low" icono={PackageMinus} />
         <ChipAlerta href="/inventario/vencimientos/" etiqueta="Vencimientos" valor={vencimientos} tono="critical" icono={Clock} />
+        <ChipAlerta href="/inventario/vencimientos/#diferencias" etiqueta="Lotes vs SIFA" valor={diferenciasLotes} tono="warning" icono={Scale} />
         <ChipAlerta href="/inventario/" etiqueta="Riesgo de agotamiento" valor={enRiesgo} tono="warning" icono={AlertTriangle} />
         {es771 && (
           <ChipAlerta href="/registros/traslados/" etiqueta="Traslados pendientes" valor={traslados === undefined ? null : trasladosPendientes(traslados).length} tono="info" icono={ArrowRightLeft} />
