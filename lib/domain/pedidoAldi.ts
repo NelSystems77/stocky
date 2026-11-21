@@ -105,8 +105,31 @@ export function cantidadAPedir(existencia: number, objetivo: number, ud: string,
   return Math.ceil(deUnidadesBase(falta, ud, tabla));
 }
 
+/** Por qué un producto no entró al pedido. */
+export type MotivoOmitido = 'sinCuota' | 'sinExistencia' | 'sinMovimiento' | 'yaCubierto';
+
+export const ETIQUETA_OMITIDO: Record<MotivoOmitido, string> = {
+  sinCuota: 'Sin cuota',
+  sinExistencia: 'Sin existencia en el reporte',
+  sinMovimiento: 'Sin movimiento (consumo 0)',
+  yaCubierto: 'Ya cubierto',
+};
+
+/** Un producto que no entró al pedido, para que la persona pueda comprobar que debe quedar fuera. */
+export interface OmitidoAldi {
+  codigo: string;
+  descripcion: string;
+  ud: string;
+  motivo: MotivoOmitido;
+  /** Unidades base; ausentes si el reporte no las trae. */
+  cuota?: number;
+  existencia?: number;
+}
+
 export interface PedidoCalculado {
   lineas: LineaAldi[];
+  /** Todo lo que no entró y por qué (las cuentas de abajo son este mismo detalle, contado). */
+  omitidos: OmitidoAldi[];
   /** Productos omitidos porque no tienen cuota (no hay tope ni política que reponer). */
   sinCuota: number;
   /** Productos con cuota pero sin existencia en el reporte: no se pide a ciegas. */
@@ -126,14 +149,18 @@ export function calcularPedidoAldi(
   p: ParametrosAldi & { diasHabiles: number },
   tabla: TablaUD = TABLA_UD_INICIAL,
 ): PedidoCalculado {
-  const r: PedidoCalculado = { lineas: [], sinCuota: 0, sinExistencia: 0, sinMovimiento: 0, yaCubiertos: 0 };
+  const r: PedidoCalculado = { lineas: [], omitidos: [], sinCuota: 0, sinExistencia: 0, sinMovimiento: 0, yaCubiertos: 0 };
+  const omitir = (x: ProductoAldi, motivo: MotivoOmitido) =>
+    r.omitidos.push({ codigo: x.codigo, descripcion: x.descripcion, ud: x.ud, motivo, ...(x.cuota === undefined ? {} : { cuota: x.cuota }), ...(x.existencia === undefined ? {} : { existencia: x.existencia }) });
   for (const x of productos) {
     if (x.cuota === undefined || x.cuota <= 0) {
       r.sinCuota++;
+      omitir(x, 'sinCuota');
       continue;
     }
     if (x.existencia === undefined) {
       r.sinExistencia++;
+      omitir(x, 'sinExistencia');
       continue;
     }
     const diario = x.consumoDiario ?? null;
@@ -147,6 +174,7 @@ export function calcularPedidoAldi(
       consumo = redondear(diario * p.diasHabiles);
       if (consumo <= 0) {
         r.sinMovimiento++;
+        omitir(x, 'sinMovimiento');
         continue;
       }
       const demanda = consumo * p.factor;
@@ -157,11 +185,13 @@ export function calcularPedidoAldi(
     const calculada = cantidadAPedir(x.existencia, objetivo, x.ud, tabla);
     if (calculada === 0) {
       r.yaCubiertos++;
+      omitir(x, 'yaCubierto');
       continue;
     }
     r.lineas.push({ codigo: x.codigo, descripcion: x.descripcion, ud: x.ud, cuota: x.cuota, existencia: x.existencia, consumo, objetivo, criterio, calculada, cantidad: calculada });
   }
   r.lineas.sort((a, b) => a.codigo.localeCompare(b.codigo));
+  r.omitidos.sort((a, b) => a.codigo.localeCompare(b.codigo));
   return r;
 }
 

@@ -104,8 +104,25 @@ describe('alcance y omitidos', () => {
   it('cuenta lo omitido y por qué', () => {
     expect(r).toMatchObject({ sinCuota: 2, sinExistencia: 1, sinMovimiento: 1, yaCubiertos: 1 });
   });
+  it('la lista de omitidos trae cada producto con su motivo, cuota y existencia, ordenada por código', () => {
+    expect(r.omitidos.map((o) => [o.codigo, o.motivo])).toEqual([
+      ['110-16-0030', 'sinCuota'],
+      ['110-16-0040', 'sinCuota'],
+      ['110-16-0050', 'sinExistencia'],
+      ['110-16-0060', 'sinMovimiento'],
+      ['110-16-0070', 'yaCubierto'],
+    ]);
+    expect(r.omitidos[0]).toMatchObject({ cuota: 0, existencia: 4000, ud: 'CN' });
+    expect(r.omitidos[1]).not.toHaveProperty('cuota'); // el reporte no la trae
+    expect(r.omitidos[2]).not.toHaveProperty('existencia');
+  });
+  it('las cuentas coinciden con la lista, y lo pedido más lo omitido es todo el inventario', () => {
+    const por = (m: string) => r.omitidos.filter((o) => o.motivo === m).length;
+    expect([r.sinCuota, r.sinExistencia, r.sinMovimiento, r.yaCubiertos]).toEqual([por('sinCuota'), por('sinExistencia'), por('sinMovimiento'), por('yaCubierto')]);
+    expect(r.lineas.length + r.omitidos.length).toBe(productos.length);
+  });
   it('sin productos devuelve un pedido vacío', () => {
-    expect(calcularPedidoAldi([], P)).toEqual({ lineas: [], sinCuota: 0, sinExistencia: 0, sinMovimiento: 0, yaCubiertos: 0 });
+    expect(calcularPedidoAldi([], P)).toEqual({ lineas: [], omitidos: [], sinCuota: 0, sinExistencia: 0, sinMovimiento: 0, yaCubiertos: 0 });
   });
 });
 
