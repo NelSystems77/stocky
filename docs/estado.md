@@ -1,14 +1,14 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-21** (después del PR 25 y del Pedido al ALDI). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-21** (después del PR 26: Pedido al ALDI). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
 
 - **Primera etapa de pruebas de usuario (capa 8): cerrada el 2026-11-21.** Lo encontrado está resuelto: el «Cargando…» de Vencimientos (PR 16), las «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15) y la página que iOS acercaba al abrir Chango (PR 21 y 22). Si llega feedback nuevo, atenderlo primero.
 - **Chango IA no responde todavía:** Google devuelve 403 («the Gemini API free tier is not available for this project») con la key del proyecto sin facturación; el proyecto Stocky tiene el prepago sin créditos (402). Hay que decidir entre cargar un crédito pequeño o dejarlo apagado. Los registros de `changoPreguntar` ahora dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). La key actual es **temporal**: cambiarla por la definitiva (`firebase functions:secrets:set GEMINI_API_KEY`) y relanzar el despliegue.
-- **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. Ver «Código pendiente».
-- **`main` incluye hasta el PR 25** y está desplegado en producción por GitHub Actions: registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
+- **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. El **Pedido al ALDI** (PR 26) se pidió después de fijar este orden y no tenía número. Ver «Código pendiente».
+- **`main` incluye hasta el PR 26** y está desplegado en producción por GitHub Actions: **Pedido al ALDI**, registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
 - **Ningún PR abierto.**
 - **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: Pedido al ALDI, conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar, la edición de dañados, traslados y entregas, la recepción de traslados con diferencia y el chip «Entregas sin recibir».
 - La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
