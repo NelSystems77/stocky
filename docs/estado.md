@@ -1,15 +1,14 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-20** (tarde). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-20** (noche, después de fusionar los PR 10 y 11). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
 
-- **`main`** tiene hasta la Fase 3 (registros) y Chango IA (PR 9).
-- **PR 10 abierto** (`fase-2-pedidos-envios`): pedidos y envíos a puestos, avisos de las 7:00, feriados trasladados al día hábil anterior y las secciones «Envíos a puestos» y «Pedidos tramitados» del resumen mensual. Auto-fix activado. **Falta revisar las pantallas nuevas en el navegador** (vista previa de Hosting, celular a 360 px): solo pasan tipos, lint, build y pruebas.
-- Al fusionar el PR 10 el despliegue sube reglas y Functions; la Function programada ahora lee `tiposPedido`, `puestos` y `seguimientos`.
-
-- **Rama `fase-2-vencimientos-lotes`** (apilada sobre el PR 10, sin PR todavía): lector del reporte de lotes y vencimientos con revisión de cambios antes de guardar. Ver `docs/decisiones.md` (2026-11-20, «Reporte de lotes y vencimientos»). Al fusionarse el PR 10 (squash), pasarla a `origin/main` con `git rebase --onto origin/main <último commit del PR 10>`.
+- **`main` incluye hasta el PR 11** y está desplegado en producción por GitHub Actions: Fase 3 (registros), Chango IA (PR 9), **pedidos y envíos a puestos** (PR 10) y **Vencimientos completo** (PR 11).
+- **Ningún PR abierto.**
+- **Las pantallas de los PR 10 y 11 nunca se probaron en el navegador** (solo tipos, lint, build, pruebas unitarias y pruebas contra el emulador de Firestore). Es lo primero que conviene hacer: abrir Hoy, Agenda → Pedidos y envíos, Reportes, Ajustes, la importación del PDF de lotes y Inventario → Vencimientos, en celular (360 px) y en PC.
+- La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
 
 ## Construido
 
@@ -23,8 +22,8 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | Ajustes: feriados, regla de UD (`CN = 100`), notificaciones | Hecho |
 | Dañados, preconteo, traslados (orden SAP), vencidos (a mano), resumen mensual PDF/Excel | Hecho |
 | Chango IA (solo consulta; cascada Flash → Flash-Lite; tope de 40 preguntas por día) | Hecho |
-| **Pedidos y envíos a puestos (M4 y M5)** | En el PR 10 |
-| **Lotes y vencimientos:** lector, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | En la rama `fase-2-vencimientos-lotes` |
+| **Pedidos y envíos a puestos (M4 y M5)**, con avisos, feriados al día hábil anterior y secciones en el resumen mensual | Hecho (PR 10) |
+| **Lotes y vencimientos:** lector del PDF real, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | Hecho (PR 11) |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
@@ -74,6 +73,6 @@ Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el
 
 ## Para la próxima sesión
 
-1. Revisar si el PR 10 se fusionó y qué comentó la revisión.
-2. Abrir las pantallas de pedidos y envíos en la vista previa y corregir lo que falle.
-3. Según lo que llegue de la persona usuaria: PDF de lotes → Vencimientos; nombres de estantes → Ubicaciones; si no, tomar un pendiente de código pequeño (A8, alta manual de agotado, pantalla del 771 para habilitar módulos).
+1. Si la persona usuaria ya probó la app: corregir lo que haya encontrado en las pantallas de pedidos y envíos y de Vencimientos.
+2. Según lo que llegue: un PDF de **consumos** → riesgo con datos reales; nombres de estantes → Ubicaciones; si no, tomar un pendiente de código pequeño (A8, alta manual de agotado, pantalla del 771 para habilitar módulos al 772, reporte «Bajos y riesgo»).
+3. Antes de abrir un PR nuevo: partir de `main` actualizado (`git pull`), y si la rama queda apilada sobre otra que se fusiona con squash, rebasar con `git rebase --onto origin/main <último commit de la rama base>`.
