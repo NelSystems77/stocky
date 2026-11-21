@@ -1,6 +1,6 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-21** (después del PR 27 y de la entrega de reportes en el celular). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-21** (después del PR 28 y de la lista de omitidos del Pedido al ALDI). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
@@ -8,7 +8,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 - **Primera etapa de pruebas de usuario (capa 8): cerrada el 2026-11-21.** Lo encontrado está resuelto: el «Cargando…» de Vencimientos (PR 16), las «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15) y la página que iOS acercaba al abrir Chango (PR 21 y 22). Si llega feedback nuevo, atenderlo primero.
 - **Chango IA no responde todavía:** Google devuelve 403 («the Gemini API free tier is not available for this project») con la key del proyecto sin facturación; el proyecto Stocky tiene el prepago sin créditos (402). Hay que decidir entre cargar un crédito pequeño o dejarlo apagado. Los registros de `changoPreguntar` ahora dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). La key actual es **temporal**: cambiarla por la definitiva (`firebase functions:secrets:set GEMINI_API_KEY`) y relanzar el despliegue.
 - **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. El **Pedido al ALDI** (PR 26) se pidió después de fijar este orden y no tenía número. Ver «Código pendiente».
-- **`main` incluye hasta el PR 27** y está desplegado en producción por GitHub Actions: **Pedido al ALDI**, registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
+- **`main` incluye hasta el PR 28** y está desplegado en producción por GitHub Actions: **Pedido al ALDI**, registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
 - **Ningún PR abierto.**
 - **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: **la entrega de los reportes en el iPhone (Guardar / Compartir, Abrir, Descargar)**, Pedido al ALDI, conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar, la edición de dañados, traslados y entregas, la recepción de traslados con diferencia y el chip «Entregas sin recibir».
 - La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
@@ -68,6 +68,7 @@ Sin número (quedan pendientes por ahora):
 - Aviso **push** cuando aparezca una diferencia nueva entre lotes y existencias (se descartó por ahora: solo pantalla y chip).
 - Probar en el navegador Ajustes (umbrales), la importación del PDF de lotes y la exportación de Vencimientos.
 
+- **Pedido al ALDI, productos sin cuota:** en la primera prueba real 568 de 1 039 quedaron omitidos «sin cuota». Se agregó la lista de omitidos para verificar si deben quedar fuera; según lo que se vea, decidir si se incluyen los que tienen consumo o los que están en 0 (ver `docs/decisiones.md`).
 - **Sugerir ajustar las cuotas** con unos 3 meses de consumos (idea de la persona usuaria): Stocky sugiere, la cuota se cambia en SIFA. Por diseñar; las líneas «limitadas por la cuota» del Pedido al ALDI son la primera señal. Detalle en `docs/decisiones.md`.
 - **Pedido al ALDI:** recordatorio periódico (hoy se puede agregar un pedido «ALDI» a mano en Agenda → Pedidos con su periodicidad); factor por producto; descontar lo que viene en camino (traslados/pedidos pendientes); que Chango conozca los pedidos al ALDI.
 

@@ -6,6 +6,7 @@ import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
+import { OmitidosAldi } from '@/components/pedidos/OmitidosAldi';
 import { BotonesExportar } from '@/components/reportes/BotonesExportar';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -226,6 +227,8 @@ export default function PedidoAldiPantalla() {
                 {resumen.ajustadas > 0 ? ` · ajustados a mano: ${resumen.ajustadas}` : ''}.
               </p>
             </Card>
+
+            <OmitidosAldi omitidos={calculado.omitidos} />
 
             {(resumen.limitadasPorCuota > 0 || resumen.sinConsumo > 0 || hayConsumos === false) && (
               <Card className="flex flex-col gap-1 text-xs text-text-muted">

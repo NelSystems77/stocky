@@ -417,3 +417,11 @@ Algunas cuotas pueden estar desactualizadas. Con el tiempo (**unos 3 meses** de 
 - **Sin dependencias nuevas.** Los archivos se siguen generando en el dispositivo (no pasan por ningún servidor).
 - **Pruebas:** nombre y tipo del archivo (PDF válido, Excel), qué se ofrece según el dispositivo y que la detección de «compartir» no falla donde no existe.
 
+## 2026-11-21 · Pedido al ALDI: lista de productos omitidos
+
+**Motivo:** con los datos reales, el pedido propuso **374 productos y omitió 568 «sin cuota»** (y 97 ya cubiertos) de 1 039; la persona usuaria esperaba más. De los 471 productos con cuota, el pedido incluía todos los que están bajo ella: la diferencia venía casi toda de los 568 sin cuota, que se omiten por diseño (sin cuota no hay tope hasta el cual reponer). No se puede saber desde el código si esos 568 realmente tienen cuota 0 en SIFA o si algunos necesitan pedirse.
+
+- **Decisión de la persona usuaria:** **no cambiar la regla todavía**; primero **mostrar la lista de omitidos y verificar**. Se agregó en Pedido al ALDI un desplegable «Ver los N productos que no entraron», por motivo (sin cuota, ya cubiertos, sin movimiento, sin existencia en el reporte), con la explicación de cada motivo y, de cada producto, su cuota y su existencia (50 por página). `calcularPedidoAldi` ahora devuelve `omitidos` (con motivo, cuota y existencia) además de las cuentas, que coinciden con la lista.
+- **Alternativas anotadas, según lo que muestre la lista:** incluir los sin cuota que tengan consumo (consumo × factor − existencia, sin tope, marcados «sin cuota») o los sin cuota con existencia 0 para que la persona decida la cantidad a mano.
+- **Pruebas:** la lista (motivos, orden, cuota y existencia ausentes) y que lo pedido más lo omitido sea todo el inventario. **La pantalla no se probó en el celular.**
+
