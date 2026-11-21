@@ -18,9 +18,11 @@ interface Props {
   valor: number | null;
   tono: Tono;
   icono: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  /** Línea opcional bajo la etiqueta (p. ej. «al día (hace 3 días)»). */
+  detalle?: string;
 }
 
-export function ChipAlerta({ href, etiqueta, valor, tono, icono: Icono }: Props) {
+export function ChipAlerta({ href, etiqueta, valor, tono, icono: Icono, detalle }: Props) {
   const activo = valor !== null && valor > 0;
   return (
     <Link
@@ -32,6 +34,7 @@ export function ChipAlerta({ href, etiqueta, valor, tono, icono: Icono }: Props)
         {valor ?? '—'}
       </span>
       <span className="text-xs text-text-muted">{etiqueta}</span>
+      {detalle && <span className="text-[11px] text-text-muted">{detalle}</span>}
     </Link>
   );
 }

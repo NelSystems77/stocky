@@ -1,3 +1,4 @@
+import { esCodigoValido, normalizarCodigo } from './codigos';
 import { estadoStock } from './stock';
 import type { FechaISO } from './types';
 
@@ -71,4 +72,37 @@ export function separarRegistros(registros: readonly RegistroAgotado[]): { activ
       .filter((r) => !esAbierto(r))
       .sort((a, b) => (b.fechaIngreso ?? '').localeCompare(a.fechaIngreso ?? '') || a.codigo.localeCompare(b.codigo)),
   };
+}
+
+export interface EntradaAgotadoManual {
+  codigo: string;
+  fechaAgotado: string;
+  notas: string;
+}
+
+export interface AgotadoManualValido {
+  codigo: string;
+  fechaAgotado: FechaISO;
+  notas: string;
+}
+
+const FECHA = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Alta manual de un agotado (RF-3.4). El código debe ser válido, la fecha no puede ser futura y no puede haber ya
+ * un registro abierto de ese producto (un producto se agota una vez a la vez).
+ */
+export function validarAgotadoManual(
+  entrada: EntradaAgotadoManual,
+  registros: readonly RegistroAgotado[],
+  hoy: FechaISO,
+): { ok: true; valor: AgotadoManualValido } | { ok: false; error: string } {
+  const codigo = normalizarCodigo(entrada.codigo);
+  if (!esCodigoValido(codigo)) return { ok: false, error: 'Elige un producto o escribe un código válido (ej. 110-16-0010).' };
+  if (!FECHA.test(entrada.fechaAgotado)) return { ok: false, error: 'La fecha de agotamiento no es válida.' };
+  if (entrada.fechaAgotado > hoy) return { ok: false, error: 'La fecha de agotamiento no puede ser futura.' };
+  if (registros.some((r) => esAbierto(r) && r.codigo === codigo)) {
+    return { ok: false, error: 'Ese producto ya tiene un agotado abierto: edita sus observaciones en la lista.' };
+  }
+  return { ok: true, valor: { codigo, fechaAgotado: entrada.fechaAgotado, notas: entrada.notas.trim().slice(0, 500) } };
 }

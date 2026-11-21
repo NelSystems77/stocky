@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Bell, BellOff, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { SeccionFarmacia772 } from '@/components/ajustes/SeccionFarmacia772';
 import { Pantalla } from '@/components/layout/Pantalla';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -281,6 +282,8 @@ export default function Ajustes() {
           </p>
         </Card>
       </section>
+
+      {estado.fase === 'listo' && estado.sesion.unidad === '771' && estado.sesion.rol !== 'superadmin' && <SeccionFarmacia772 />}
 
       <section aria-label="Unidades de medida" className="mt-8 flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Unidades de medida</h2>

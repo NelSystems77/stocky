@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diasAgotado, proponerAgotados, registrosACerrar, separarRegistros, type ProductoStock, type RegistroAgotado } from './agotados';
+import { diasAgotado, proponerAgotados, registrosACerrar, separarRegistros, validarAgotadoManual, type ProductoStock, type RegistroAgotado } from './agotados';
 
 const p = (codigo: string, existencia: number | undefined, fechaReporte = '2026-11-12', extra: Partial<ProductoStock> = {}): ProductoStock => ({
   codigo,
@@ -70,5 +70,31 @@ describe('separarRegistros', () => {
     ]);
     expect(activos.map((x) => x.id)).toEqual(['2', '1']);
     expect(cerrados.map((x) => x.id)).toEqual(['4', '3']);
+  });
+});
+
+describe('validarAgotadoManual (alta manual, RF-3.4)', () => {
+  const abierto = { id: 'a', codigo: '110-16-0010', fechaAgotado: '2026-11-10', fechaIngreso: null, origen: 'detectado' as const, notas: '' };
+  const cerrado = { ...abierto, id: 'b', codigo: '110-16-0020', fechaIngreso: '2026-11-15' };
+
+  it('acepta un producto válido, normaliza el código y recorta las observaciones', () => {
+    const r = validarAgotadoManual({ codigo: ' 1-10-16-0030 ', fechaAgotado: '2026-11-20', notas: '  sin stock  ' }, [], '2026-11-21');
+    expect(r).toEqual({ ok: true, valor: { codigo: '110-16-0030', fechaAgotado: '2026-11-20', notas: 'sin stock' } });
+  });
+  it('acepta hoy como fecha, pero no una fecha futura', () => {
+    expect(validarAgotadoManual({ codigo: '110-16-0030', fechaAgotado: '2026-11-21', notas: '' }, [], '2026-11-21').ok).toBe(true);
+    expect(validarAgotadoManual({ codigo: '110-16-0030', fechaAgotado: '2026-11-22', notas: '' }, [], '2026-11-21').ok).toBe(false);
+  });
+  it('rechaza un código inválido o una fecha mal escrita', () => {
+    expect(validarAgotadoManual({ codigo: 'abc', fechaAgotado: '2026-11-20', notas: '' }, [], '2026-11-21').ok).toBe(false);
+    expect(validarAgotadoManual({ codigo: '110-16-0030', fechaAgotado: '20/11/2026', notas: '' }, [], '2026-11-21').ok).toBe(false);
+  });
+  it('rechaza un producto que ya tiene un agotado abierto, pero acepta uno que ya se cerró', () => {
+    expect(validarAgotadoManual({ codigo: '110-16-0010', fechaAgotado: '2026-11-20', notas: '' }, [abierto], '2026-11-21').ok).toBe(false);
+    expect(validarAgotadoManual({ codigo: '110-16-0020', fechaAgotado: '2026-11-20', notas: '' }, [cerrado], '2026-11-21').ok).toBe(true);
+  });
+  it('las observaciones tienen un tope de 500 caracteres', () => {
+    const r = validarAgotadoManual({ codigo: '110-16-0030', fechaAgotado: '2026-11-20', notas: 'x'.repeat(700) }, [], '2026-11-21');
+    expect(r.ok && r.valor.notas.length).toBe(500);
   });
 });

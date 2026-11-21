@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, PackageMinus, PackageX, Scale, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, CalendarClock, Clock, FileClock, PackageMinus, PackageX, Scale, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Pantalla } from '@/components/layout/Pantalla';
@@ -12,10 +12,12 @@ import { SeccionTareasHoy } from '@/components/tareas/SeccionTareasHoy';
 import { ChipAlerta } from '@/components/ui/ChipAlerta';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { hoyCostaRica } from '@/lib/domain/calendario';
+import { suscribirUltimaCargaConsumos } from '@/lib/db/consumos';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
 import { suscribirUltimaImportacion, type Importacion } from '@/lib/db/importaciones';
 import { suscribirTraslados } from '@/lib/db/traslados';
 import { trasladosPendientes, type RegistroTraslado } from '@/lib/domain/traslados';
+import { estadoConsumos } from '@/lib/domain/reporteDesactualizado';
 import { estadoStock } from '@/lib/domain/stock';
 import { contarPendientes, vistaPedidosEnvios } from '@/lib/domain/pedidosEnvios';
 import { usePedidosEnvios } from '@/lib/pedidos/usePedidosEnvios';
@@ -44,13 +46,15 @@ export default function Hoy() {
   const [ultima, setUltima] = useState<Importacion | null | undefined>(undefined);
   const [existencias, setExistencias] = useState<Existencia[] | undefined>(undefined);
   const [traslados, setTraslados] = useState<RegistroTraslado[] | undefined>(undefined);
+  // `undefined` = cargando; `null` = nunca se cargó el reporte «Productos en despacho».
+  const [ultimaCargaConsumos, setUltimaCargaConsumos] = useState<string | null | undefined>(undefined);
   const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
   const es771 = estado.fase === 'listo' && (estado.sesion.unidad === '771' || estado.sesion.rol === 'superadmin');
 
   useEffect(() => {
     if (!uid) return;
     const bajas = [suscribirUltimaImportacion(uid, setUltima), suscribirExistencias(uid, setExistencias)];
-    if (es771) bajas.push(suscribirTraslados(uid, setTraslados));
+    if (es771) bajas.push(suscribirTraslados(uid, setTraslados), suscribirUltimaCargaConsumos(uid, setUltimaCargaConsumos));
     return () => bajas.forEach((b) => b());
   }, [uid, es771]);
 
@@ -93,6 +97,9 @@ export default function Hoy() {
   if (estado.fase !== 'listo') return null;
   const { sesion } = estado;
 
+  // Alerta A8: más de 8 días sin cargar consumos (solo el 771 los carga).
+  const consumos = ultimaCargaConsumos === undefined ? null : estadoConsumos(ultimaCargaConsumos, hoyCostaRica());
+
   const ahora = new Date();
   const fecha = format(parseISO(hoyCostaRica(ahora)), "EEEE d 'de' MMMM", { locale: es });
 
@@ -110,6 +117,22 @@ export default function Hoy() {
           <ChipAlerta href="/registros/traslados/" etiqueta="Traslados pendientes" valor={traslados === undefined ? null : trasladosPendientes(traslados).length} tono="info" icono={ArrowRightLeft} />
         )}
         {es771 && <ChipAlerta href="/agenda/" etiqueta="Pedidos y envíos" valor={pedidosEnvios} tono="info" icono={CalendarClock} />}
+        {es771 && consumos && (
+          <ChipAlerta
+            href="/importar/"
+            etiqueta="Consumos sin actualizar"
+            valor={consumos.tipo === 'desactualizado' ? consumos.dias : consumos.tipo === 'alDia' ? 0 : null}
+            tono="warning"
+            icono={FileClock}
+            detalle={
+              consumos.tipo === 'desactualizado'
+                ? 'días sin cargar: importa el reporte'
+                : consumos.tipo === 'alDia'
+                  ? `al día (hace ${consumos.dias} ${consumos.dias === 1 ? 'día' : 'días'})`
+                  : 'aún no hay consumos cargados'
+            }
+          />
+        )}
       </section>
 
       {ultima === null && (
