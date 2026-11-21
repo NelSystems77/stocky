@@ -120,6 +120,30 @@ service cloud.firestore {
       match /consumos/{id} {
         allow read, write: if accesoModulo(uid, 'inventario');
       }
+      // Conteo físico contra SIFA: la foto de la existencia de SIFA queda congelada en el documento del conteo;
+      // lo contado vive en `lineas` (cantidad en unidades base, una por producto contado).
+      match /conteos/{id} {
+        allow read, delete: if accesoModulo(uid, 'inventario');
+        allow create: if accesoModulo(uid, 'inventario')
+          && request.resource.data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && (request.resource.data.fechaReporteSifa == null
+              || (request.resource.data.fechaReporteSifa is string
+                  && request.resource.data.fechaReporteSifa.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && request.resource.data.alcance in ['todos', 'lista']
+          && request.resource.data.foto is map;
+        // La foto no se edita: es lo que decía SIFA al iniciar.
+        allow update: if false;
+      }
+      match /conteos/{id}/lineas/{codigo} {
+        allow read, delete: if accesoModulo(uid, 'inventario');
+        allow create, update: if accesoModulo(uid, 'inventario')
+          && request.resource.data.codigo is string
+          && request.resource.data.codigo.size() > 0
+          && request.resource.data.contado is number
+          && request.resource.data.contado >= 0
+          && request.resource.data.observacion is string
+          && request.resource.data.observacion.size() <= 500;
+      }
       // Registro de agotados: fechas civiles `YYYY-MM-DD`; `fechaIngreso` es null mientras siga agotado.
       match /agotados/{id} {
         allow read, delete: if accesoModulo(uid, 'agotados');

@@ -13,6 +13,13 @@ export interface DatosReporte {
   columnasNumericas?: number[];
   /** Líneas de resumen al pie. */
   resumen: string[];
+  /**
+   * Índices de filas que se pintan en gris (en el PDF) para distinguirlas a simple vista. Si se indica, el PDF no usa
+   * el rayado alterno (el gris significaría dos cosas). El Excel no admite colores de relleno: ahí la señal es una columna de texto.
+   */
+  filasResaltadas?: number[];
+  /** Índices de columnas cuyo valor va en negrita en las filas resaltadas (PDF). */
+  columnasNegrita?: number[];
   /** Nombre del archivo sin extensión. */
   nombreArchivo: string;
 }

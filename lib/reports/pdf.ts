@@ -6,6 +6,8 @@ import { MARCA, type DatosReporte, type DatosResumen } from './tipos';
 const AZUL_NOCHE: [number, number, number] = [11, 18, 32];
 const TURQUESA: [number, number, number] = [45, 212, 191];
 const GRIS_CLARO: [number, number, number] = [243, 244, 246];
+/** Gris de las filas resaltadas (con diferencia): se distingue del rayado y no gasta los colores de lo urgente. */
+const GRIS_RESALTE: [number, number, number] = [209, 213, 219];
 
 /** Genera el PDF en el dispositivo (jspdf se carga solo cuando se pide un reporte). */
 export async function generarPdf(d: DatosReporte): Promise<Uint8Array> {
@@ -35,6 +37,8 @@ export async function generarPdf(d: DatosReporte): Promise<Uint8Array> {
   const numericas = d.columnasNumericas ?? [];
   const alineacion: Record<number, { halign: 'right' }> = {};
   for (const i of numericas) alineacion[i] = { halign: 'right' };
+  const resaltadas = d.filasResaltadas ? new Set(d.filasResaltadas) : undefined;
+  const negrita = d.columnasNegrita ?? [];
 
   autoTable(doc, {
     startY: y + 1,
@@ -43,10 +47,15 @@ export async function generarPdf(d: DatosReporte): Promise<Uint8Array> {
     margin: { left: margen, right: margen, bottom: 16 },
     styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 2, textColor: AZUL_NOCHE, overflow: 'linebreak' },
     headStyles: { fillColor: AZUL_NOCHE, textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: GRIS_CLARO },
+    // Con filas resaltadas el gris significa «hay diferencia»: no se usa además como rayado.
+    ...(resaltadas ? {} : { alternateRowStyles: { fillColor: GRIS_CLARO } }),
     columnStyles: alineacion,
     didParseCell: (datos) => {
       if (datos.section === 'head' && numericas.includes(datos.column.index)) datos.cell.styles.halign = 'right';
+      if (datos.section === 'body' && resaltadas?.has(datos.row.index)) {
+        datos.cell.styles.fillColor = GRIS_RESALTE;
+        if (negrita.includes(datos.column.index)) datos.cell.styles.fontStyle = 'bold';
+      }
     },
   });
 
