@@ -34,7 +34,7 @@ Reglas de negocio que nunca se rompen:
 | Backend | Cloud Functions for Firebase (TypeScript, Node), región `us-central1` |
 | IA | Gemini API (plan gratuito) **solo desde Cloud Functions** |
 | PDF de entrada | `pdfjs-dist` en el navegador (los reportes no salen del dispositivo para leerse) |
-| Reportes | `jspdf` + `jspdf-autotable` (PDF), `xlsx` / SheetJS (Excel) |
+| Reportes | `jspdf` + `jspdf-autotable` (PDF), `xlsx` / SheetJS (Excel) y `xlsx-js-style` (Excel con colores de relleno y negrita: fork de SheetJS con estilos, fijado en `1.2.0`, solo para **escribir** libros) |
 | QR | `qrcode` (generar etiquetas), `@zxing/browser` (escanear con cámara), como en QR Inventarios |
 | Formularios | `react-hook-form` + `zod` |
 | Fechas | `date-fns` con locale `es`, zona **America/Costa_Rica** |

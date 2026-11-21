@@ -72,4 +72,24 @@ describe('exportar el conteo', () => {
     const xlsx = await generarExcel(datos);
     expect(new TextDecoder('latin1').decode(xlsx.slice(0, 2))).toBe('PK');
   });
+  it('el Excel pinta de gris solo las filas con diferencia', async () => {
+    const datos = reporteConteo(filas, meta, emisor);
+    const XLSX = await import('xlsx-js-style');
+    const libro = XLSX.read(await generarExcel(datos), { type: 'array', cellStyles: true });
+    const hoja = libro.Sheets[libro.SheetNames[0] ?? ''];
+    if (!hoja) throw new Error('sin hoja');
+    // (La negrita se escribe en el archivo, pero la librería no la devuelve al leer: se verificó a mano en styles.xml.)
+    const fila = (codigo: string) => {
+      for (let r = 0; r < 30; r++) if (hoja[XLSX.utils.encode_cell({ r, c: 0 })]?.v === codigo) return r;
+      throw new Error(`no está ${codigo}`);
+    };
+    const relleno = (r: number, c: number) => hoja[XLSX.utils.encode_cell({ r, c })]?.s?.fgColor?.rgb as string | undefined;
+    const falta = fila('110-16-0010');
+    const coincide = fila('110-20-0001');
+    const sinContar = fila('110-05-0003');
+    expect(relleno(falta, 0)?.toUpperCase()).toBe('D1D5DB');
+    expect(relleno(falta, 5)?.toUpperCase()).toBe('D1D5DB');
+    expect(relleno(coincide, 0)).toBeUndefined();
+    expect(relleno(sinContar, 0)).toBeUndefined();
+  });
 });

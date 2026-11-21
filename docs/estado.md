@@ -28,7 +28,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | **Pedidos y envíos a puestos (M4 y M5)**, con avisos, feriados al día hábil anterior y secciones en el resumen mensual | Hecho (PR 10) |
 | **Lotes y vencimientos:** lector del PDF real, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | Hecho (PR 11) |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
-| **Conteo físico contra SIFA** (Inventario → Conteo físico): foto congelada de SIFA, captura en sueltas con la UD, diferencia con signo, filas grises, «solo diferencias», productos fuera de SIFA, exportar PDF y Excel | Hecho (PR 23, sin probar en navegador) |
+| **Conteo físico contra SIFA** (Inventario → Conteo físico): foto congelada de SIFA, captura en sueltas con la UD, diferencia con signo, filas grises, «solo diferencias», productos fuera de SIFA, exportar PDF y Excel (con gris) | Hecho (PR 23, sin probar en navegador) |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
 
@@ -52,7 +52,7 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - **App Check fase 2** (`enforceAppCheck`): solo tras revisar Firebase Console → App Check → Métricas y con visto bueno explícito.
 
 ### Código pendiente (en orden de prioridad)
-1. ~~**Conteo físico contra SIFA** (`CLAUDE.md` §13)~~ → hecho en el PR 23. Queda por probar en el navegador y, más adelante, contar **por lote** y filtrar **por ubicación** (cuando exista el módulo). El Excel no pinta de gris (SheetJS no escribe colores): marca la diferencia con texto («falta»/«sobra»); para el gris habría que sumar `xlsx-js-style`.
+1. ~~**Conteo físico contra SIFA** (`CLAUDE.md` §13)~~ → hecho en el PR 23. Queda por probar en el navegador y, más adelante, contar **por lote** y filtrar **por ubicación** (cuando exista el módulo). El Excel pinta de gris con `xlsx-js-style` (sumado al stack) y además marca «(falta)»/«(sobra)» en texto.
 2. **Reporte PDF/Excel «Bajos y riesgo»** (PRD §7).
 3. **Alerta A8** (reporte desactualizado, más de 8 días sin consumos) · **alta manual de un agotado** (RF-3.4) · **pantalla para que el 771 habilite módulos al 772** (la callable ya existe; la UI solo está en `/admin`) y navegación del 772 con esos módulos.
 4. **Elegir qué hacer con el archivo al importar** (cargar existencias, cargar lotes, actualizar consumos…): hoy Stocky detecta el tipo de reporte por su encabezado.
