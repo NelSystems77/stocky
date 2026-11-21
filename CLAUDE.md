@@ -12,7 +12,7 @@ PWA asistente de pendientes para el **Almacén Local de medicamentos 771** (usua
 Reglas de negocio que nunca se rompen:
 
 - **Solo datos de medicamentos y operativos. Nunca datos de pacientes.**
-- Stocky **lee** reportes y **recuerda** trámites; no escribe en SIFA ni SAP. Única excepción, pedida por la persona usuaria (2026-11-21): el **Pedido al ALDI** (Inventario) calcula una **propuesta** de cantidades con la cuota, la existencia y un factor; la persona la revisa y ajusta, y el pedido se tramita en SIFA/SAP. Fuera de eso, Stocky no calcula cantidades de pedido.
+- Stocky **lee** reportes y **recuerda** trámites; no escribe en SIFA ni SAP. Única excepción, pedida por la persona usuaria (2026-11-21): el **Pedido al ALDI** (Inventario) calcula una **propuesta** de cantidades (la cuota es el tope; repone según el consumo × un factor de seguridad, menos la existencia); la persona la revisa y ajusta, y el pedido se tramita en SIFA/SAP. Fuera de eso, Stocky no calcula cantidades de pedido.
 - Cada usuario ve **solo sus datos**; el catálogo de códigos es compartido.
 - El 772 solo ve Tareas, Agotados, Vencimientos y Reportes, salvo módulos que el 771 le habilite.
 

@@ -13,6 +13,9 @@ const LineaSchema = z.object({
   cuota: z.number().finite().nonnegative(),
   existencia: z.number().finite().nonnegative(),
   objetivo: z.number().finite().nonnegative(),
+  /** Consumo esperado del período (unidades base); `null` sin consumo. Ausente en pedidos de la primera versión. */
+  consumo: z.number().finite().nonnegative().nullable().optional(),
+  criterio: z.enum(['consumo', 'limitadaPorCuota', 'sinConsumo']).optional(),
   calculada: z.number().int().positive(),
   cantidad: z.number().int().positive(),
 });

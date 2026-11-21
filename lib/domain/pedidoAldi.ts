@@ -1,11 +1,20 @@
+import { diasHabilesEntre, sumarDias } from './calendario';
+import type { FechaISO } from './types';
 import { deUnidadesBase, TABLA_UD_INICIAL, type TablaUD } from './unidades';
 
 /**
  * Pedido al ALDI (almacén que abastece al 771): propuesta para reponer las existencias. Todo en **unidades base**
  * salvo `cantidad`, que va en la UD del producto (CN, FC…) y siempre en números enteros.
  *
- * objetivo = cuota × factor × (días ÷ 30)   (la cuota de SIFA es mensual)
- * a pedir  = objetivo − existencia, redondeado hacia arriba a la UD entera; si no es positivo, no se pide.
+ * La **cuota es el tope**: lo máximo que se permite tener en existencia. El pedido repone según el **consumo**:
+ *
+ *   consumo del período = consumo diario × días hábiles del período
+ *   objetivo = el menor entre la cuota y (consumo del período × factor)
+ *   a pedir  = objetivo − existencia, redondeado hacia arriba a la UD entera; si no es positivo, no se pide
+ *
+ * El factor es el margen de seguridad sobre el consumo (1.25, 1.5, 2…). Sin consumo cargado se repone hasta la cuota y
+ * se avisa; con consumo en cero no se pide. Una línea «limitada por la cuota» (el consumo × factor pide más de lo
+ * permitido) es señal de que la cuota puede estar desactualizada.
  */
 
 /** Factores habituales; cualquier número mayor que 0 hasta `FACTOR_MAXIMO` también vale. */
@@ -22,7 +31,7 @@ export const DIAS_MAXIMOS = 90;
 
 export interface ParametrosAldi {
   factor: number;
-  /** Días que cubre el pedido. */
+  /** Días calendario que cubre el pedido. */
   dias: number;
 }
 
@@ -43,14 +52,30 @@ export function etiquetaPeriodo(dias: number): string {
   return dias === DIAS_MES ? 'mensual' : `${dias} ${dias === 1 ? 'día' : 'días'}`;
 }
 
+/** Días hábiles (lunes a viernes y segundo sábado, sin feriados) de los próximos `dias` días, desde mañana. */
+export function diasHabilesDelPeriodo(hoy: FechaISO, dias: number, feriados: readonly FechaISO[] = []): number {
+  return diasHabilesEntre(sumarDias(hoy, 1), sumarDias(hoy, dias), feriados);
+}
+
 export interface ProductoAldi {
   codigo: string;
   descripcion: string;
   ud: string;
-  /** Unidades base. */
+  /** Unidades base: el tope permitido. */
   cuota?: number;
   existencia?: number;
+  /** Unidades base por día hábil (media móvil de las últimas 4 cargas). `null` o sin dato = sin consumo cargado. */
+  consumoDiario?: number | null;
 }
+
+/** En qué se basó el objetivo de una línea. */
+export type CriterioAldi =
+  /** Consumo del período × factor (queda por debajo de la cuota). */
+  | 'consumo'
+  /** Consumo × factor pasa de la cuota: se pide hasta la cuota (posible cuota desactualizada). */
+  | 'limitadaPorCuota'
+  /** Sin consumo cargado: se repone hasta la cuota. */
+  | 'sinConsumo';
 
 export interface LineaAldi {
   codigo: string;
@@ -59,17 +84,22 @@ export interface LineaAldi {
   /** Unidades base. */
   cuota: number;
   existencia: number;
-  /** Nivel al que se quiere reponer: cuota × factor × días/30 (unidades base). */
+  /** Consumo esperado del período (unidades base); `null` sin consumo cargado. Ausente en pedidos de la primera versión. */
+  consumo?: number | null;
+  /** Nivel al que se quiere reponer (unidades base): lo menor entre la cuota y consumo × factor. */
   objetivo: number;
+  /** En qué se basó el objetivo. Ausente en pedidos guardados con la primera versión de la fórmula. */
+  criterio?: CriterioAldi;
   /** Lo que sugiere el cálculo, en la UD del producto (entero). */
   calculada: number;
   /** Lo que se pide, en la UD del producto (entero): lo calculado, o lo que la persona ajustó a mano. */
   cantidad: number;
 }
 
+const redondear = (n: number) => Math.round(n * 1e6) / 1e6;
+
 /** Cantidad a pedir en la UD del producto (entero, hacia arriba); `0` si la existencia ya llega al objetivo. */
-export function cantidadAPedir(existencia: number, cuota: number, p: ParametrosAldi, ud: string, tabla: TablaUD = TABLA_UD_INICIAL): number {
-  const objetivo = (cuota * p.factor * p.dias) / DIAS_MES;
+export function cantidadAPedir(existencia: number, objetivo: number, ud: string, tabla: TablaUD = TABLA_UD_INICIAL): number {
   const falta = objetivo - existencia;
   if (falta <= 0) return 0;
   return Math.ceil(deUnidadesBase(falta, ud, tabla));
@@ -77,17 +107,26 @@ export function cantidadAPedir(existencia: number, cuota: number, p: ParametrosA
 
 export interface PedidoCalculado {
   lineas: LineaAldi[];
-  /** Productos omitidos porque no tienen cuota (no hay política de stock que reponer). */
+  /** Productos omitidos porque no tienen cuota (no hay tope ni política que reponer). */
   sinCuota: number;
   /** Productos con cuota pero sin existencia en el reporte: no se pide a ciegas. */
   sinExistencia: number;
+  /** Productos con consumo en cero: no se mueven, no se pide. */
+  sinMovimiento: number;
   /** Productos cuya existencia ya llega al objetivo (no entran). */
   yaCubiertos: number;
 }
 
-/** Arma la propuesta de pedido con la existencia de SIFA, ordenada por código. Las líneas en 0 no aparecen. */
-export function calcularPedidoAldi(productos: readonly ProductoAldi[], p: ParametrosAldi, tabla: TablaUD = TABLA_UD_INICIAL): PedidoCalculado {
-  const r: PedidoCalculado = { lineas: [], sinCuota: 0, sinExistencia: 0, yaCubiertos: 0 };
+/**
+ * Arma la propuesta de pedido, ordenada por código. `diasHabiles` son los del período (ver `diasHabilesDelPeriodo`).
+ * Las líneas en 0 no aparecen.
+ */
+export function calcularPedidoAldi(
+  productos: readonly ProductoAldi[],
+  p: ParametrosAldi & { diasHabiles: number },
+  tabla: TablaUD = TABLA_UD_INICIAL,
+): PedidoCalculado {
+  const r: PedidoCalculado = { lineas: [], sinCuota: 0, sinExistencia: 0, sinMovimiento: 0, yaCubiertos: 0 };
   for (const x of productos) {
     if (x.cuota === undefined || x.cuota <= 0) {
       r.sinCuota++;
@@ -97,21 +136,30 @@ export function calcularPedidoAldi(productos: readonly ProductoAldi[], p: Parame
       r.sinExistencia++;
       continue;
     }
-    const calculada = cantidadAPedir(x.existencia, x.cuota, p, x.ud, tabla);
+    const diario = x.consumoDiario ?? null;
+    let objetivo: number;
+    let consumo: number | null = null;
+    let criterio: CriterioAldi;
+    if (diario === null) {
+      objetivo = x.cuota;
+      criterio = 'sinConsumo';
+    } else {
+      consumo = redondear(diario * p.diasHabiles);
+      if (consumo <= 0) {
+        r.sinMovimiento++;
+        continue;
+      }
+      const demanda = consumo * p.factor;
+      objetivo = Math.min(x.cuota, demanda);
+      criterio = demanda > x.cuota ? 'limitadaPorCuota' : 'consumo';
+    }
+    objetivo = redondear(objetivo);
+    const calculada = cantidadAPedir(x.existencia, objetivo, x.ud, tabla);
     if (calculada === 0) {
       r.yaCubiertos++;
       continue;
     }
-    r.lineas.push({
-      codigo: x.codigo,
-      descripcion: x.descripcion,
-      ud: x.ud,
-      cuota: x.cuota,
-      existencia: x.existencia,
-      objetivo: Math.round(((x.cuota * p.factor * p.dias) / DIAS_MES) * 1e6) / 1e6,
-      calculada,
-      cantidad: calculada,
-    });
+    r.lineas.push({ codigo: x.codigo, descripcion: x.descripcion, ud: x.ud, cuota: x.cuota, existencia: x.existencia, consumo, objetivo, criterio, calculada, cantidad: calculada });
   }
   r.lineas.sort((a, b) => a.codigo.localeCompare(b.codigo));
   return r;
@@ -140,8 +188,17 @@ export interface ResumenAldi {
   productos: number;
   /** Líneas cuya cantidad la persona cambió respecto de lo calculado. */
   ajustadas: number;
+  /** Líneas donde el consumo × factor pasa de la cuota (posible cuota desactualizada). */
+  limitadasPorCuota: number;
+  /** Líneas sin consumo cargado (se repuso hasta la cuota). */
+  sinConsumo: number;
 }
 
 export function resumenPedidoAldi(lineas: readonly LineaAldi[]): ResumenAldi {
-  return { productos: lineas.length, ajustadas: lineas.filter((l) => l.cantidad !== l.calculada).length };
+  return {
+    productos: lineas.length,
+    ajustadas: lineas.filter((l) => l.cantidad !== l.calculada).length,
+    limitadasPorCuota: lineas.filter((l) => l.criterio === 'limitadaPorCuota').length,
+    sinConsumo: lineas.filter((l) => l.criterio === 'sinConsumo').length,
+  };
 }
