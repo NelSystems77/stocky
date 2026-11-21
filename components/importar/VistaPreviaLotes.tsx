@@ -1,8 +1,8 @@
 import { AlertTriangle, CheckCircle2, FileCheck2, XCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/Card';
-import { formatearEnUD } from '@/lib/domain/formato';
-import { type Lote, type RevisionLotes } from '@/lib/domain/lotes';
+import { formatearEnUD, formatearNumero } from '@/lib/domain/formato';
+import { clasificarRepetidos, type Lote, type RevisionLotes } from '@/lib/domain/lotes';
 import type { FilaLote, ResultadoLotes } from '@/lib/pdf/lotes';
 
 const FILAS_MUESTRA = 10;
@@ -73,6 +73,8 @@ export function VistaPreviaLotes({ resultado, archivo, lotes, revision, dudosas,
   const { cambios, cuadre } = revision;
   const despacho = [resultado.despacho.codigo, resultado.despacho.nombre].filter(Boolean).join(' ');
   const total = resultado.totalDeclarado;
+  const repetidos = clasificarRepetidos(resultado.repetidos, cuadre);
+  const repetidosRevisar = repetidos.filter((r) => r.estado === 'difiere');
   const avisos = [...(revision.fecha.mensaje ? [revision.fecha.mensaje] : []), ...resultado.advertencias];
 
   return (
@@ -137,6 +139,31 @@ export function VistaPreviaLotes({ resultado, archivo, lotes, revision, dudosas,
           <ul className="list-disc pl-5 text-sm text-text-muted">
             {avisos.map((a) => (
               <li key={a}>{a}</li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {repetidos.length > 0 && (
+        <Card className={`flex flex-col gap-2 text-sm ${repetidosRevisar.length > 0 ? 'border border-warning/30' : ''}`}>
+          <p className="font-semibold">
+            {repetidos.length} {repetidos.length === 1 ? 'lote viene' : 'lotes vienen'} en dos filas en el PDF (varias entradas del mismo lote)
+          </p>
+          <p className="text-xs text-text-muted">
+            SIFA guarda una fila por cada entrada de mercadería. Stocky las junta en un solo lote con el total: no se duplica nada.
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {repetidos.map((r) => (
+              <li key={`${r.codigo}${r.lote}${r.vence}`} className="rounded-xl bg-surface-2 p-2">
+                <span className="font-mono">{r.codigo}</span> · lote <span className="font-mono">{r.lote}</span>
+                <br />
+                <span className="tabular-nums">
+                  {r.cantidades.map((c) => formatearNumero(c)).join(' + ')} = <strong>{formatearNumero(r.suma)} {r.ud}</strong>
+                </span>{' '}
+                {r.estado === 'coincide' && <span className="text-ok">· coincide con SIFA</span>}
+                {r.estado === 'difiere' && <span className="text-warning">· el producto NO coincide con SIFA: revisa</span>}
+                {r.estado === 'sinComparar' && <span className="text-text-muted">· sin existencias guardadas para comparar</span>}
+              </li>
             ))}
           </ul>
         </Card>
