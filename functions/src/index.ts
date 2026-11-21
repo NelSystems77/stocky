@@ -8,6 +8,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { z } from 'zod';
 import { PeticionChango, preguntarAChango } from './chango.js';
+import { MODELOS_CHANGO } from './dominio/chango.js';
 import { ejecutarTick, type Enviar } from './tick.js';
 
 setGlobalOptions({ region: 'us-central1', maxInstances: 5 });
@@ -160,10 +161,11 @@ export const tickNotificaciones = onSchedule(
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 /**
- * Modelos de Gemini separados por coma, en orden de preferencia (opcional). Vacío = la cascada de `MODELOS_CHANGO`.
+ * Modelos de Gemini separados por coma, en orden de preferencia. Por defecto, la cascada de `MODELOS_CHANGO`
+ * (un valor por defecto vacío haría fallar el despliegue no interactivo: Firebase lo trata como «sin valor»).
  * Permite cambiar de modelo sin tocar código si Google mueve los nombres o las cuotas gratuitas (ver `docs/despliegue.md`).
  */
-const CHANGO_MODELOS = defineString('CHANGO_MODELOS', { default: '' });
+const CHANGO_MODELOS = defineString('CHANGO_MODELOS', { default: MODELOS_CHANGO.join(',') });
 
 /**
  * Chango IA: consulta, analiza y sugiere con los datos de quien pregunta. No ejecuta acciones.
