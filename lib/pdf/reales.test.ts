@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extraerLineas } from './leerPdf';
 import { consolidarFilas } from '@/lib/domain/consolidado';
-import { cuadrarConExistencias, lotesDesdeFilas } from '@/lib/domain/lotes';
+import { compararLotes, cuadrarConExistencias, esMedicamento, hayCambios, lotesDesdeFilas, planGuardadoLotes, type LoteGuardado } from '@/lib/domain/lotes';
 import { parsearLotes } from './lotes';
 import { parsearReporte } from './parser';
 
@@ -64,7 +64,20 @@ describe.skipIf(!dir)('PDF reales de SIFA', () => {
     expect(existencias.fechaReporte).toBe('2026-11-20');
     expect(existencias.filas).toHaveLength(1039);
     expect(existencias.advertencias).toEqual([]);
-    const lotes = lotesDesdeFilas(parsearLotes(await leerLineas('rpt_vencebodega.pdf')).filas);
+    const nombres = new Map(existencias.filas.map((f) => [f.codigo, f.descripcion]));
+    const lotes = lotesDesdeFilas(parsearLotes(await leerLineas('rpt_vencebodega.pdf')).filas, undefined, nombres);
+    // Las 13 filas con la descripción partida en el PDF de lotes toman el nombre completo de las existencias.
+    expect(lotes.find((l) => l.codigo === '110-04-0045')).toMatchObject({ lote: 'FD25237', vence: '2027-03-30', cantidad: 1440, descripcion: expect.stringMatching(/^ABACAVIR 600 MG/) });
+    expect(lotes.find((l) => l.codigo === '110-28-1020')?.descripcion).toMatch(/^LAMOTRIGINA 25 MG/);
+    expect(lotes.every((l) => nombres.has(l.codigo))).toBe(true);
+    // Cargar el mismo reporte dos veces no duplica lotes, cantidades ni productos (medicamentos y no medicamentos).
+    const primera = new Map<string, LoteGuardado>(planGuardadoLotes(lotes, [], '2026-11-20').lotes.map((l) => [l.id, { ...l.datos, id: l.id }]));
+    expect(primera.size).toBe(lotes.length);
+    expect([...primera.values()].filter((l) => !esMedicamento(l.codigo))).toHaveLength(23);
+    const segunda = planGuardadoLotes(lotes, [...primera.values()], '2026-11-20');
+    expect(segunda.salidas).toEqual([]);
+    expect(segunda.lotes.every((l) => l.datos.cantidad === primera.get(l.id)?.cantidad && l.datos.cantidadIngresada === primera.get(l.id)?.cantidadIngresada)).toBe(true);
+    expect(hayCambios(compararLotes([...primera.values()], lotes))).toBe(false);
     const c = cuadrarConExistencias(lotes, consolidarFilas(existencias.filas));
     expect(c.coinciden).toBe(436);
     expect(c.sinLotes).toEqual([]);

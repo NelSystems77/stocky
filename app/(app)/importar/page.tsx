@@ -20,7 +20,7 @@ import { guardarCargaLotes, leerLotes } from '@/lib/db/lotes';
 import { lotesDesdeFilas, revisarCarga, type Lote, type LoteGuardado, type RevisionLotes } from '@/lib/domain/lotes';
 import { useEstadoSync } from '@/lib/db/sync';
 import { leerPdfEnNavegador } from '@/lib/pdf/leerPdf';
-import { esReporteLotes, parsearLotes, type ResultadoLotes } from '@/lib/pdf/lotes';
+import { esReporteLotes, parsearLotes, type FilaLote, type ResultadoLotes } from '@/lib/pdf/lotes';
 import { parsearReporte } from '@/lib/pdf/parser';
 import { ErrorReporte, type ResultadoReporte } from '@/lib/pdf/tipos';
 
@@ -42,6 +42,10 @@ interface PreviaLotes {
   lotes: Lote[];
   anteriores: LoteGuardado[];
   revision: RevisionLotes;
+  /** Filas cuyo nombre no se pudo leer bien y que no tienen otra fuente (el reporte de existencias). */
+  dudosas: FilaLote[];
+  /** Filas con la descripción partida cuyo nombre se tomó del reporte de existencias. */
+  conNombreDeExistencias: number;
   bloqueo: string | null;
 }
 
@@ -118,7 +122,6 @@ export default function Importar() {
   async function procesarLotes(nombre: string, lineas: string[]) {
     const resultado = parsearLotes(lineas);
     const bloqueoDespacho = validarDespacho(resultado.despacho, sesion.unidad, sesion.rol === 'superadmin')?.motivo ?? null;
-    const lotes = lotesDesdeFilas(resultado.filas, TABLA_UD_INICIAL);
 
     // Lo guardado antes y las existencias de SIFA sirven para comparar; sin red y sin copia local se sigue sin ellas.
     let anteriores: LoteGuardado[] = [];
@@ -135,6 +138,12 @@ export default function Importar() {
       existencias = null;
     }
 
+    // El nombre se toma de las existencias (completo); el del reporte de lotes viene cortado o mezclado.
+    const nombres = new Map((existencias ?? []).map((e) => [e.codigo, e.descripcion]));
+    const lotes = lotesDesdeFilas(resultado.filas, TABLA_UD_INICIAL, nombres);
+    const partidas = resultado.filas.filter((f) => f.dudosa);
+    const dudosas = partidas.filter((f) => !nombres.has(f.codigo));
+
     const revision = revisarCarga({ nuevos: lotes, anteriores, existencias, fechaReporte: resultado.fechaReporte, hoy: hoyCostaRica() });
     // Sin poder ver lo anterior no se guarda: marcaría como agotado lo que no se pudo comparar.
     const bloqueo =
@@ -143,7 +152,7 @@ export default function Importar() {
       (resultado.cuadra === false ? 'El valor de las filas leídas no cuadra con el total del reporte: falta o sobra alguna fila. No se guarda.' : null) ??
       (revision.fecha.nivel === 'bloqueo' ? revision.fecha.mensaje : null);
     setRevisado(false);
-    setFase({ tipo: 'previaLotes', previa: { archivo: nombre, resultado, lotes, anteriores, revision, bloqueo } });
+    setFase({ tipo: 'previaLotes', previa: { archivo: nombre, resultado, lotes, anteriores, revision, dudosas, conNombreDeExistencias: partidas.length - dudosas.length, bloqueo } });
   }
 
   function guardarLotes(p: PreviaLotes) {
@@ -266,7 +275,7 @@ export default function Importar() {
 
       {fase.tipo === 'previaLotes' && (
         <>
-          <VistaPreviaLotes resultado={fase.previa.resultado} archivo={fase.previa.archivo} lotes={fase.previa.lotes} revision={fase.previa.revision} />
+          <VistaPreviaLotes resultado={fase.previa.resultado} archivo={fase.previa.archivo} lotes={fase.previa.lotes} revision={fase.previa.revision} dudosas={fase.previa.dudosas} conNombreDeExistencias={fase.previa.conNombreDeExistencias} />
           {fase.previa.bloqueo && (
             <p role="alert" className="rounded-2xl bg-critical/10 p-3 text-sm text-critical">
               {fase.previa.bloqueo}

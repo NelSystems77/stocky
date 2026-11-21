@@ -53,6 +53,7 @@ R lunes y último jueves del mes · C martes · V, Z y pedido semanal 772 miérc
 - **Ubicaciones (M6)**: texto libre con varias ubicaciones vigentes (RF-6.7), reubicación del mes (RF-6.8), mapa con QR, y Chango que propone y la persona confirma (RF-6.9, primera acción de Chango).
 - **Conteo físico contra SIFA** (`CLAUDE.md` §13, fuera del PRD): se construye después del consolidado de Inventario.
 - Reporte PDF/Excel «Bajos y riesgo» (PRD §7).
+- **Elegir qué hacer con el archivo al importar** (cargar existencias, cargar lotes, actualizar consumos…): hoy Stocky detecta el tipo de reporte por su encabezado; la persona usuaria pidió poder elegirlo (idea para más adelante).
 - Aviso **push** cuando aparezca una diferencia nueva entre lotes y existencias (se descartó por ahora: solo pantalla y chip).
 - Alerta **A8** (reporte desactualizado, más de 8 días sin consumos).
 - **Alta manual de un agotado** (RF-3.4).

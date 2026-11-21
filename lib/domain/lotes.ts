@@ -56,9 +56,10 @@ const igual = (a: number, b: number) => Math.abs(a - b) < IGUAL;
 
 /**
  * Convierte las filas del reporte a lotes en unidades base. Si el mismo lote (código, lote y vencimiento)
- * viene en dos filas, se suman cantidad y valor.
+ * viene en dos filas, se suman cantidad y valor. Del reporte de lotes solo se toman código, lote, vencimiento y existencia
+ * (y el valor, para cuadrar el total); el nombre sale de `descripciones` (existencias) cuando se conoce.
  */
-export function lotesDesdeFilas(filas: readonly FilaLoteLeida[], tabla: TablaUD = TABLA_UD_INICIAL): Lote[] {
+export function lotesDesdeFilas(filas: readonly FilaLoteLeida[], tabla: TablaUD = TABLA_UD_INICIAL, descripciones?: ReadonlyMap<string, string>): Lote[] {
   const mapa = new Map<string, Lote>();
   for (const f of filas) {
     const id = idLote(f.codigo, f.lote, f.vence);
@@ -68,7 +69,9 @@ export function lotesDesdeFilas(filas: readonly FilaLoteLeida[], tabla: TablaUD 
       previo.cantidad = Math.round((previo.cantidad + cantidad) * 1e6) / 1e6;
       previo.valor = Math.round((previo.valor + f.valor) * 100) / 100;
     } else {
-      mapa.set(id, { codigo: f.codigo, ud: f.ud, descripcion: f.descripcion, lote: f.lote, vence: f.vence, cantidad, valor: f.valor });
+      // El nombre del producto se toma del reporte de existencias (completo); el del reporte de lotes viene cortado y,
+      // cuando la descripción se parte en dos líneas, mezclado con el de la fila vecina. Solo se usa si no hay otro.
+      mapa.set(id, { codigo: f.codigo, ud: f.ud, descripcion: descripciones?.get(f.codigo) ?? f.descripcion, lote: f.lote, vence: f.vence, cantidad, valor: f.valor });
     }
   }
   return [...mapa.values()].toSorted((a, b) => a.codigo.localeCompare(b.codigo) || a.vence.localeCompare(b.vence) || a.lote.localeCompare(b.lote));
