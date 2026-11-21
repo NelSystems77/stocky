@@ -163,7 +163,7 @@ export function parsearLotes(lineas: readonly string[]): ResultadoLotes {
       existencia: numero(cant),
       valor: numero(valor),
       dudosa,
-      ...(dudosa ? { nota: 'Descripción partida en dos líneas en el PDF.' } : {}),
+      ...(dudosa ? { nota: 'Descripción partida en dos líneas en el PDF: el nombre puede venir incompleto o mezclado; el código, lote, vencimiento y cantidad sí se leen aparte.' } : {}),
     });
   };
 

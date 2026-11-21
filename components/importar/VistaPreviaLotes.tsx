@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/Card';
 import { formatearEnUD } from '@/lib/domain/formato';
 import { type Lote, type RevisionLotes } from '@/lib/domain/lotes';
-import type { ResultadoLotes } from '@/lib/pdf/lotes';
+import type { FilaLote, ResultadoLotes } from '@/lib/pdf/lotes';
 
 const FILAS_MUESTRA = 10;
 const LIMITE_LISTA = 60;
@@ -63,11 +63,14 @@ interface Props {
   archivo: string;
   lotes: Lote[];
   revision: RevisionLotes;
+  /** Filas con el nombre dudoso y sin otra fuente de nombre. */
+  dudosas: FilaLote[];
+  /** Filas con la descripción partida cuyo nombre se tomó del reporte de existencias. */
+  conNombreDeExistencias: number;
 }
 
-export function VistaPreviaLotes({ resultado, archivo, lotes, revision }: Props) {
+export function VistaPreviaLotes({ resultado, archivo, lotes, revision, dudosas, conNombreDeExistencias }: Props) {
   const { cambios, cuadre } = revision;
-  const dudosas = resultado.filas.filter((f) => f.dudosa);
   const despacho = [resultado.despacho.codigo, resultado.despacho.nombre].filter(Boolean).join(' ');
   const total = resultado.totalDeclarado;
   const avisos = [...(revision.fecha.mensaje ? [revision.fecha.mensaje] : []), ...resultado.advertencias];
@@ -92,6 +95,14 @@ export function VistaPreviaLotes({ resultado, archivo, lotes, revision }: Props)
           <dd>
             {resultado.filas.length} → {lotes.length} lotes de {revision.productos} productos
           </dd>
+          {conNombreDeExistencias > 0 && (
+            <>
+              <dt className="text-text-muted">Nombres</dt>
+              <dd>
+                {conNombreDeExistencias} filas traían la descripción partida en el PDF: se usó el nombre del reporte de existencias. Código, lote, vencimiento y cantidad se leen de sus columnas.
+              </dd>
+            </>
+          )}
           <dt className="text-text-muted">No medicamentos</dt>
           <dd>{revision.noMedicamentos === 0 ? 'Ninguno' : `${revision.noMedicamentos} lotes (condones, etiquetas, etc.): se guardan marcados`}</dd>
         </dl>
@@ -215,12 +226,14 @@ export function VistaPreviaLotes({ resultado, archivo, lotes, revision }: Props)
 
       {dudosas.length > 0 && (
         <Card className="text-sm">
-          <p className="mb-1 font-semibold">{dudosas.length} filas dudosas</p>
-          <p className="mb-2 text-xs text-text-muted">La descripción venía partida en dos líneas: confirma el producto y el lote contra el PDF.</p>
+          <p className="mb-1 font-semibold">{dudosas.length} productos con el nombre incompleto</p>
+          <p className="mb-2 text-xs text-text-muted">
+            El PDF parte la descripción en dos líneas y todavía no hay un reporte de existencias guardado con el nombre completo. El código, el lote, el vencimiento y la cantidad sí se leyeron bien; el nombre se completa al importar el reporte de existencias.
+          </p>
           <ul className="flex flex-col gap-1 text-text-muted">
             {dudosas.slice(0, 15).map((f) => (
               <li key={`${f.codigo}${f.lote}${f.vence}`}>
-                <span className="font-mono text-text">{f.codigo}</span> · lote {f.lote} · {f.descripcion}
+                <span className="font-mono text-text">{f.codigo}</span> · lote {f.lote}
               </li>
             ))}
           </ul>

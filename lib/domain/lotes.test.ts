@@ -74,6 +74,20 @@ describe('lotesDesdeFilas', () => {
   });
 });
 
+describe('lotesDesdeFilas: el nombre sale de las existencias', () => {
+  it('usa el nombre del reporte de existencias cuando se conoce (el del PDF de lotes viene cortado o mezclado)', () => {
+    const r = lotesDesdeFilas([fila({ descripcion: 'MOFETILO 250 MG (COMO' })], undefined, new Map([['110-16-0010', 'ABACAVIR 600 MG (COMO SULFATO) CON L']]));
+    expect(r[0]?.descripcion).toBe('ABACAVIR 600 MG (COMO SULFATO) CON L');
+  });
+  it('si no hay otra fuente, conserva el del PDF; y no cambia código, lote, vencimiento ni cantidad', () => {
+    const r = lotesDesdeFilas([fila({ descripcion: 'DEL PDF', existencia: 14.4 })], undefined, new Map([['999-99-9999', 'OTRO']]));
+    expect(r[0]).toMatchObject({ descripcion: 'DEL PDF', codigo: '110-16-0010', lote: 'A1', vence: '2028-06-30', cantidad: 1440 });
+  });
+  it('sin mapa funciona igual que antes', () => {
+    expect(lotesDesdeFilas([fila({ descripcion: 'X' })])[0]?.descripcion).toBe('X');
+  });
+});
+
 describe('idLote y esMedicamento', () => {
   it('no deja barras ni espacios (ID de documento válido)', () => {
     expect(idLote('110-16-0010', 'AB/12 3', '2028-06-30')).toBe('110-16-0010_AB-12-3_2028-06-30');
@@ -345,6 +359,62 @@ describe('diferenciasConSifa (permanentes)', () => {
     const r = diferenciasConSifa(lotes({ cantidad: 5 }), [existencia('110-16-0010', 5, '2026-11-13'), existencia('110-13-0003', 1, FECHA)]);
     expect(r.fechaExistencias).toBe(FECHA);
     expect(r.comparable).toBe(true);
+  });
+});
+
+describe('cargar dos veces el mismo reporte no duplica nada', () => {
+  const FECHA = '2026-11-20';
+  const reporte = [
+    lote({ lote: 'A', cantidad: 1000 }),
+    lote({ lote: 'B', cantidad: 500, vence: '2027-03-31' }),
+    lote({ codigo: '227-02-0140', lote: 'CONDON', ud: 'UD', cantidad: 1960, vence: '2030-08-19' }),
+    lote({ codigo: '450-02-0109', lote: 'ETIQ', ud: 'UD', cantidad: 168000, vence: '2027-10-25' }),
+  ];
+  // Lo que queda guardado después de la primera carga.
+  const guardar = (plan: ReturnType<typeof planGuardadoLotes>, previos: LoteGuardado[]): LoteGuardado[] => {
+    const mapa = new Map(previos.map((l) => [l.id, l]));
+    for (const l of plan.lotes) mapa.set(l.id, { ...l.datos, id: l.id });
+    for (const s of plan.salidas) mapa.set(s.id, { ...mapa.get(s.id)!, ...s.datos });
+    return [...mapa.values()];
+  };
+
+  it('la segunda carga idéntica no cambia cantidades, ni ingresos, ni la cantidad de lotes', () => {
+    const primera = guardar(planGuardadoLotes(reporte, [], FECHA), []);
+    expect(primera).toHaveLength(4);
+    const plan2 = planGuardadoLotes(reporte, primera, FECHA);
+    const segunda = guardar(plan2, primera);
+    expect(segunda).toHaveLength(4);
+    for (const l of segunda) {
+      const antes = primera.find((p) => p.id === l.id)!;
+      expect(l.cantidad).toBe(antes.cantidad);
+      expect(l.cantidadIngresada).toBe(antes.cantidadIngresada);
+      expect(l.fechaIngreso).toBe(antes.fechaIngreso);
+    }
+    expect(plan2.salidas).toEqual([]);
+    expect(plan2.vencidos).toEqual([]);
+  });
+  it('la revisión de la segunda carga idéntica dice «sin cambios»', () => {
+    const primera = guardar(planGuardadoLotes(reporte, [], FECHA), []);
+    const c = compararLotes(primera, reporte);
+    expect(hayCambios(c)).toBe(false);
+    expect(c.sinCambio).toBe(4);
+  });
+  it('medicamentos y no medicamentos quedan una sola vez cada uno', () => {
+    const guardados = guardar(planGuardadoLotes(reporte, [], FECHA), []);
+    expect(guardados.filter((l) => !esMedicamento(l.codigo))).toHaveLength(2);
+    expect(guardados.filter((l) => esMedicamento(l.codigo))).toHaveLength(2);
+    expect(new Set(guardados.map((l) => l.id)).size).toBe(guardados.length);
+  });
+  it('un lote que el reporte trae en dos filas se guarda una vez con la suma (no dos veces)', () => {
+    const dos = lotesDesdeFilas([fila({ existencia: 10 }), fila({ existencia: 4 })]);
+    expect(dos).toHaveLength(1);
+    expect(dos[0]?.cantidad).toBe(1400);
+    const g = guardar(planGuardadoLotes(dos, [], FECHA), []);
+    expect(g).toHaveLength(1);
+    // Y al cargar otra vez lo mismo, no se vuelve a sumar.
+    const g2 = guardar(planGuardadoLotes(lotesDesdeFilas([fila({ existencia: 10 }), fila({ existencia: 4 })]), g, FECHA), g);
+    expect(g2[0]?.cantidad).toBe(1400);
+    expect(g2[0]?.cantidadIngresada).toBe(1400);
   });
 });
 
