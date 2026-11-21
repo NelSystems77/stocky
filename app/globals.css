@@ -20,3 +20,16 @@
 html { background: var(--color-bg); color: var(--color-text); }
 body { min-height: 100dvh; font-family: var(--font-sans); }
 :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/*
+ * iOS Safari acerca la página al enfocar un campo con letra menor de 16 px y, a veces, no la devuelve (ni al refrescar):
+ * todo se ve ampliado y cortado a la derecha. En pantallas táctiles los campos de texto usan 16 px mínimo.
+ * Va fuera de las capas de Tailwind a propósito: así gana sobre `text-sm` / `text-xs` de cada campo.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
