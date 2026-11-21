@@ -406,3 +406,14 @@ La primera versión (PR 26) usaba `cuota × factor × (días ÷ 30) − existenc
 
 ### Pendiente nuevo: sugerir ajustar las cuotas (idea de la persona usuaria, 2026-11-21)
 Algunas cuotas pueden estar desactualizadas. Con el tiempo (**unos 3 meses** de cargas de consumo) Stocky debería **sugerir ajustar la cuota** de un producto según su consumo. Es solo una sugerencia: la cuota se cambia en SIFA. Por diseñar con la persona usuaria (cuánta diferencia entre cuota y consumo justifica sugerir, subir y bajar, cómo se muestra y si Chango la menciona). Las líneas «limitadas por la cuota» del pedido ya son la primera señal. Requiere leer más de las últimas 4 cargas de consumo (hoy el riesgo solo lee esas).
+
+## 2026-11-21 · Entrega de los reportes en el celular: compartir, abrir y descargar
+
+**Problema (la persona usuaria, en Safari de iPhone, sin instalar la app):** los reportes se generaban pero no aparecía forma de descargarlos. La descarga era un enlace oculto con `download`, disparado **después** de generar el archivo (ya sin el toque directo) y con solo un aviso «PDF generado»; Safari de iPhone a menudo ignora eso o lo abre sin avisar, y no hay un diálogo de descarga como en computadora.
+
+- **Qué se hizo:** al terminar de generar (PDF o Excel, en cualquier reporte: todos usan `BotonesExportar`), queda en pantalla un cuadro «Archivo listo» con tres botones que se tocan con un gesto directo: **Guardar / Compartir** (menú de compartir del sistema, con «Guardar en Archivos», WhatsApp o correo; solo si el navegador puede compartir archivos), **Abrir** (pestaña nueva, desde donde Safari ofrece compartir y guardar) y **Descargar** (el enlace de siempre).
+- **En computadora** (puntero fino) además se descarga sola, como antes.
+- **Lo que no se verificó:** el comportamiento real en el iPhone (no hay forma de probarlo desde aquí). El diagnóstico es probable, no confirmado; si «Guardar / Compartir» no aparece o no funciona en su Safari, queda «Abrir» y «Descargar» y habría que mirar la causa.
+- **Sin dependencias nuevas.** Los archivos se siguen generando en el dispositivo (no pasan por ningún servidor).
+- **Pruebas:** nombre y tipo del archivo (PDF válido, Excel), qué se ofrece según el dispositivo y que la detección de «compartir» no falla donde no existe.
+
