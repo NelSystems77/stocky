@@ -1,6 +1,6 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-21** (después del PR 26: Pedido al ALDI). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-21** (después del PR 27: Pedido al ALDI con consumo). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
@@ -8,7 +8,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 - **Primera etapa de pruebas de usuario (capa 8): cerrada el 2026-11-21.** Lo encontrado está resuelto: el «Cargando…» de Vencimientos (PR 16), las «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15) y la página que iOS acercaba al abrir Chango (PR 21 y 22). Si llega feedback nuevo, atenderlo primero.
 - **Chango IA no responde todavía:** Google devuelve 403 («the Gemini API free tier is not available for this project») con la key del proyecto sin facturación; el proyecto Stocky tiene el prepago sin créditos (402). Hay que decidir entre cargar un crédito pequeño o dejarlo apagado. Los registros de `changoPreguntar` ahora dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). La key actual es **temporal**: cambiarla por la definitiva (`firebase functions:secrets:set GEMINI_API_KEY`) y relanzar el despliegue.
 - **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. El **Pedido al ALDI** (PR 26) se pidió después de fijar este orden y no tenía número. Ver «Código pendiente».
-- **`main` incluye hasta el PR 26** y está desplegado en producción por GitHub Actions: **Pedido al ALDI**, registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
+- **`main` incluye hasta el PR 27** y está desplegado en producción por GitHub Actions: **Pedido al ALDI**, registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
 - **Ningún PR abierto.**
 - **Pruebas en el celular:** la persona usuaria ya probó Hoy, Agenda, Reportes, Ajustes, importación y Vencimientos (capa 8). Falta probar lo nuevo: Pedido al ALDI, conteo físico, «Bajos y riesgo», chip A8, «Registrar a mano», Ajustes → Farmacia 772, el selector de tipo al importar, la edición de dañados, traslados y entregas, la recepción de traslados con diferencia y el chip «Entregas sin recibir».
 - La Function programada ahora lee `tiposPedido`, `puestos`, `seguimientos`, `lotes`, `existencias` y `consumos` a las 7:00 (≈1 600 lecturas diarias por cuenta, dentro de la cuota gratuita).
@@ -28,7 +28,7 @@ Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió
 | **Pedidos y envíos a puestos (M4 y M5)**, con avisos, feriados al día hábil anterior y secciones en el resumen mensual | Hecho (PR 10) |
 | **Lotes y vencimientos:** lector del PDF real, revisión de cambios, guardado, pantalla de Vencimientos, alertas A1/A2 con umbrales editables, gestionar lotes, vencidos automáticos, proyección entre cargas, detalle de cambios e historial, tarea del tercer jueves, aviso push, exportar a PDF/Excel y Chango IA con lotes | Hecho (PR 11) |
 | App Check fase 1 (el cliente envía tokens, sin exigirlos) | Hecho |
-| **Pedido al ALDI** (Inventario → Pedido al ALDI): propuesta de reposición = cuota × factor × (días ÷ 30) − existencia, factor 1.25 / 1.5 / 2 u otro, período mensual / 15 días u otro, ajustes a mano, historial y exportar PDF/Excel | Hecho (PR 26, sin probar en el celular) |
+| **Pedido al ALDI** (Inventario → Pedido al ALDI): propuesta de reposición = lo menor entre la **cuota (tope)** y **consumo del período × factor**, menos la existencia; factor 1.25 / 1.5 / 2 u otro, período mensual / 15 días u otro, líneas «limitadas por la cuota» y «sin consumo», ajustes a mano, historial y exportar PDF/Excel | Hecho (PR 26 y 27, sin probar en el celular) |
 | **Conteo físico contra SIFA** (Inventario → Conteo físico): foto congelada de SIFA, captura en sueltas con la UD, diferencia con signo, filas grises, «solo diferencias», productos fuera de SIFA, exportar PDF y Excel (con gris) | Hecho (PR 23, sin probar en navegador) |
 
 ### Calendario de envíos y pedidos (confirmado el 2026-11-20)
@@ -68,6 +68,7 @@ Sin número (quedan pendientes por ahora):
 - Aviso **push** cuando aparezca una diferencia nueva entre lotes y existencias (se descartó por ahora: solo pantalla y chip).
 - Probar en el navegador Ajustes (umbrales), la importación del PDF de lotes y la exportación de Vencimientos.
 
+- **Sugerir ajustar las cuotas** con unos 3 meses de consumos (idea de la persona usuaria): Stocky sugiere, la cuota se cambia en SIFA. Por diseñar; las líneas «limitadas por la cuota» del Pedido al ALDI son la primera señal. Detalle en `docs/decisiones.md`.
 - **Pedido al ALDI:** recordatorio periódico (hoy se puede agregar un pedido «ALDI» a mano en Agenda → Pedidos con su periodicidad); factor por producto; descontar lo que viene en camino (traslados/pedidos pendientes); que Chango conozca los pedidos al ALDI.
 
 ### Fase 5 (mejoras)
@@ -85,5 +86,5 @@ Acciones por voz en Chango IA, carga mensual de consumos, más funciones para el
 
 1. Probar en el celular lo nuevo (lista en «Dónde estamos») y corregir lo que salga.
 2. Resolver con la persona usuaria lo de Chango (crédito o dejarlo apagado) y cambiar la key temporal.
-3. Según lo que llegue: PDF de consumos → riesgo con datos reales; nombres de estantes → Ubicaciones. Si no, los pendientes sin número (resumen mensual automático, Ubicaciones, Chango con la agenda).
+3. Diseñar con la persona usuaria la sugerencia de ajuste de cuotas (≈3 meses de consumos). Según lo que llegue: PDF de consumos → riesgo con datos reales; nombres de estantes → Ubicaciones. Si no, los pendientes sin número (resumen mensual automático, Ubicaciones, Chango con la agenda).
 4. Antes de abrir un PR nuevo: partir de `main` actualizado (`git pull`), y si la rama queda apilada sobre otra que se fusiona con squash, rebasar con `git rebase --onto origin/main <último commit de la rama base>`.

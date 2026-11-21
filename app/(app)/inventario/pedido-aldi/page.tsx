@@ -12,12 +12,15 @@ import { Card } from '@/components/ui/Card';
 import { useToast } from '@/components/ui/Toast';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { suscribirExistencias, type Existencia } from '@/lib/db/existencias';
+import { suscribirUsuario } from '@/lib/db/usuario';
+import { useRiesgo } from '@/lib/riesgo/useRiesgo';
 import { borrarPedidoAldi, guardarPedidoAldi, restaurarPedidoAldi, suscribirPedidosAldi, type PedidoAldi } from '@/lib/db/pedidosAldi';
 import { hoyCostaRica } from '@/lib/domain/calendario';
 import { formatearNumero } from '@/lib/domain/formato';
 import {
   aplicarAjustes,
   calcularPedidoAldi,
+  diasHabilesDelPeriodo,
   etiquetaPeriodo,
   FACTORES_ALDI,
   PERIODOS_ALDI,
@@ -48,10 +51,14 @@ export default function PedidoAldiPantalla() {
   // Ajustes a mano: código → texto escrito (en la UD del producto).
   const [ajustes, setAjustes] = useState<Record<string, string>>({});
   const [visibles, setVisibles] = useState(PAGINA);
+  // Feriados del usuario: los días hábiles del período salen del calendario laboral.
+  const [feriados, setFeriados] = useState<readonly string[]>([]);
+  // Consumo diario por producto (el mismo que usa el riesgo de agotamiento); `hayConsumos` es `undefined` mientras carga.
+  const { riesgos, hayConsumos } = useRiesgo(es771 ? existencias : undefined);
 
   useEffect(() => {
     if (!uid || !es771) return;
-    const bajas = [suscribirExistencias(uid, setExistencias), suscribirPedidosAldi(uid, setGuardados)];
+    const bajas = [suscribirExistencias(uid, setExistencias), suscribirPedidosAldi(uid, setGuardados), suscribirUsuario(uid, (d) => setFeriados(d.feriados))];
     return () => bajas.forEach((b) => b());
   }, [uid, es771]);
 
@@ -64,9 +71,17 @@ export default function PedidoAldiPantalla() {
     [factorElegido, factorOtro, diasElegidos, diasOtro],
   );
 
+  const diasHabiles = useMemo(() => (parametros.ok ? diasHabilesDelPeriodo(hoyCostaRica(), parametros.valor.dias, feriados) : 0), [parametros, feriados]);
+
   const calculado = useMemo(
-    () => (parametros.ok && existencias ? calcularPedidoAldi(existencias, parametros.valor) : null),
-    [parametros, existencias],
+    () =>
+      parametros.ok && existencias && hayConsumos !== undefined && diasHabiles > 0
+        ? calcularPedidoAldi(
+            existencias.map((e) => ({ ...e, consumoDiario: riesgos.get(e.codigo)?.consumoDiario ?? null })),
+            { ...parametros.valor, diasHabiles },
+          )
+        : null,
+    [parametros, existencias, hayConsumos, riesgos, diasHabiles],
   );
   const lineas = useMemo(() => (calculado ? aplicarAjustes(calculado.lineas, ajustes) : []), [calculado, ajustes]);
   const resumen = resumenPedidoAldi(lineas);
@@ -121,7 +136,7 @@ export default function PedidoAldiPantalla() {
       </Link>
 
       <p className="text-sm text-text-muted">
-        Propuesta para reponer las existencias del 771: cuota × factor × (días ÷ 30) − existencia, redondeada hacia arriba a la UD entera. Tú la revisas y ajustas; el pedido se tramita en SIFA/SAP.
+        Propuesta para reponer las existencias del 771: se repone hasta lo menor entre la cuota (el tope permitido) y el consumo del período × el factor, menos la existencia, hacia arriba a la UD entera. Tú la revisas y ajustas; el pedido se tramita en SIFA/SAP.
       </p>
 
       <section aria-label="Parámetros del pedido" className="flex flex-col gap-3 rounded-2xl bg-surface p-4">
@@ -171,12 +186,17 @@ export default function PedidoAldiPantalla() {
               />
             )}
           </div>
-          <p className="text-xs text-text-muted">La cuota de SIFA es mensual: con 15 días se usa la mitad.</p>
+          <p className="text-xs text-text-muted">El consumo se calcula con los días hábiles del período. El factor es el margen de seguridad sobre el consumo; la cuota nunca se pasa.</p>
         </div>
 
         {!parametros.ok && (
           <p role="alert" className="text-sm text-critical">
             {parametros.error}
+          </p>
+        )}
+        {parametros.ok && diasHabiles === 0 && (
+          <p role="alert" className="text-sm text-critical">
+            Ese período no tiene días hábiles: elige uno más largo.
           </p>
         )}
       </section>
@@ -202,10 +222,22 @@ export default function PedidoAldiPantalla() {
                 {resumen.productos} {resumen.productos === 1 ? 'producto' : 'productos'} a pedir · {etiquetaPeriodo(parametros.valor.dias)} · × {formatearNumero(parametros.valor.factor)}
               </p>
               <p className="text-xs text-text-muted">
-                Existencias del reporte de SIFA{fechaReporte ? ` del ${fecha(fechaReporte)}` : ''}. Sin cuota (omitidos): {calculado.sinCuota} · sin existencia en el reporte: {calculado.sinExistencia} · ya cubiertos: {calculado.yaCubiertos}
+                Existencias del reporte de SIFA{fechaReporte ? ` del ${fecha(fechaReporte)}` : ''}. Omitidos: sin cuota {calculado.sinCuota} · sin existencia en el reporte {calculado.sinExistencia} · sin movimiento (consumo 0) {calculado.sinMovimiento} · ya cubiertos {calculado.yaCubiertos}
                 {resumen.ajustadas > 0 ? ` · ajustados a mano: ${resumen.ajustadas}` : ''}.
               </p>
             </Card>
+
+            {(resumen.limitadasPorCuota > 0 || resumen.sinConsumo > 0 || hayConsumos === false) && (
+              <Card className="flex flex-col gap-1 text-xs text-text-muted">
+                {hayConsumos === false && <p className="text-warning">No hay consumos cargados: todo se repone hasta la cuota. Importa «Productos en despacho» para ajustar por consumo.</p>}
+                {resumen.limitadasPorCuota > 0 && (
+                  <p>
+                    <span className="font-semibold text-warning">{resumen.limitadasPorCuota} limitadas por la cuota:</span> el consumo × factor pide más de lo permitido; puede que su cuota esté desactualizada.
+                  </p>
+                )}
+                {resumen.sinConsumo > 0 && hayConsumos !== false && <p>{resumen.sinConsumo} sin consumo cargado: se repuso hasta la cuota.</p>}
+              </Card>
+            )}
 
             <section aria-label="Guardar y exportar" className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -233,10 +265,12 @@ export default function PedidoAldiPantalla() {
                         <span className="font-mono text-sm">{l.codigo}</span>
                         <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-text-muted">{l.ud}</span>
                         {cantidad !== l.calculada && <span className="rounded-md bg-info/15 px-1.5 py-0.5 text-[10px] font-semibold text-info">Ajustado</span>}
+                        {l.criterio === 'limitadaPorCuota' && <span className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-semibold text-warning">Limitada por la cuota</span>}
+                        {l.criterio === 'sinConsumo' && <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-text-muted">Sin consumo</span>}
                       </p>
                       <p className="truncate text-sm">{l.descripcion}</p>
                       <p className="text-xs text-text-muted">
-                        Cuota {formatearNumero(deUnidadesBase(l.cuota, l.ud))} · hay {formatearNumero(deUnidadesBase(l.existencia, l.ud))} · objetivo {formatearNumero(deUnidadesBase(l.objetivo, l.ud))} · sugerido {l.calculada} {l.ud}
+                        Cuota {formatearNumero(deUnidadesBase(l.cuota, l.ud))} · hay {formatearNumero(deUnidadesBase(l.existencia, l.ud))} · consumo del período {l.consumo == null ? '—' : formatearNumero(deUnidadesBase(l.consumo, l.ud))} · objetivo {formatearNumero(deUnidadesBase(l.objetivo, l.ud))} · sugerido {l.calculada} {l.ud}
                       </p>
                       <label className="flex items-center gap-2 text-sm">
                         <span className="text-xs text-text-muted">A pedir ({l.ud})</span>
