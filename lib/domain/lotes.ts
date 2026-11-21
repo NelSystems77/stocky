@@ -249,6 +249,39 @@ export function cuadrarConExistencias(lotes: readonly Lote[], existencias: reado
   };
 }
 
+/** Lote que el PDF trae en varias filas (varias entradas): las cantidades están en la UD del reporte. */
+export interface LoteRepetido {
+  codigo: string;
+  ud: string;
+  lote: string;
+  vence: FechaISO;
+  cantidades: readonly number[];
+}
+
+export type EstadoRepetido = 'coincide' | 'difiere' | 'sinComparar';
+
+export interface RepetidoClasificado extends LoteRepetido {
+  /** Suma de las filas (UD del reporte). */
+  suma: number;
+  /**
+   * `coincide`: la suma de lotes del producto cuadra con la existencia de SIFA (no hay duplicado).
+   * `difiere`: el producto no cuadra con SIFA (conviene revisar). `sinComparar`: no hay existencias guardadas para comparar.
+   */
+  estado: EstadoRepetido;
+}
+
+/** Clasifica los lotes en varias filas según el cuadre del producto con las existencias de SIFA. */
+export function clasificarRepetidos(repetidos: readonly LoteRepetido[], cuadre: CuadreExistencias | null): RepetidoClasificado[] {
+  return repetidos.map((r) => {
+    const suma = Math.round(r.cantidades.reduce((s, c) => s + c, 0) * 1e6) / 1e6;
+    let estado: EstadoRepetido = 'sinComparar';
+    if (cuadre) {
+      estado = cuadre.diferencias.some((d) => d.codigo === r.codigo) ? 'difiere' : cuadre.sinExistencia.includes(r.codigo) ? 'sinComparar' : 'coincide';
+    }
+    return { ...r, suma, estado };
+  });
+}
+
 export interface DiferenciasSifa {
   /** Fecha de la última carga de lotes y del último reporte de existencias guardados. */
   fechaLotes: FechaISO | null;

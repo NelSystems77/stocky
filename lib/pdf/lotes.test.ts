@@ -153,19 +153,26 @@ describe('parsearLotes', () => {
     expect(r.advertencias).toEqual([]);
   });
 
-  it('avisa del mismo lote repetido (misma fecha) y de líneas que no se pudieron leer, sin descartarlas en silencio', () => {
+  it('un lote en varias filas se informa con sus cantidades (no es una advertencia) y las líneas ilegibles se avisan', () => {
     const r = parsearLotes(
       reporte(
-        ['1 10 14 2640 CN INDOMETACINA 100 MG., T1AIZ01 31-jul-2028 42.000 199,468.50', '1 10 14 2640 CN INDOMETACINA 100 MG., T1AIZ01 31-jul-2028 1.000 4,000.00', 'esto no es una fila válida'],
-        '203,468.50',
+        ['1 10 14 2640 CN INDOMETACINA 100 MG., T1AIZ01 31-jul-2028 42.000 199,468.50', '1 10 14 2640 CN INDOMETACINA 100 MG., T1AIZ01 31-jul-2028 16.000 75,988.00', 'esto no es una fila válida'],
+        '275,456.50',
       ),
     );
+    expect(r.repetidos).toEqual([{ codigo: '110-14-2640', ud: 'CN', lote: 'T1AIZ01', vence: '2028-07-31', cantidades: [42, 16] }]);
     const adv = r.advertencias.join(' | ');
-    expect(adv).toMatch(/Lote repetido/);
+    expect(adv).not.toMatch(/repetido/i);
     expect(adv).toMatch(/1 línea\(s\) del PDF no se pudieron leer/);
     expect(adv).toContain('esto no es una fila válida');
   });
-
+  it('sin lotes repetidos la lista va vacía; tres filas del mismo lote suman tres cantidades', () => {
+    expect(parsearLotes(reporte([filas[0]!], '4,664,498.86')).repetidos).toEqual([]);
+    const tres = parsearLotes(
+      reporte(['1 10 16 10 CN PARACETAMOL 500 MG, T X1 18-feb-2030 1.000 10.00', '1 10 16 10 CN PARACETAMOL 500 MG, T X1 18-feb-2030 2.000 20.00', '1 10 16 10 CN PARACETAMOL 500 MG, T X1 18-feb-2030 3.000 30.00'], '60.00'),
+    );
+    expect(tres.repetidos[0]?.cantidades).toEqual([1, 2, 3]);
+  });
   it('una fecha de vencimiento imposible no se lee como fila y se avisa', () => {
     const r = parsearLotes(reporte(['1 10 13 3 CN ROSUVASTATINA 10 MG C B1 31-feb-2029 1.000 10.00', filas[1]!], '2,077,668.94'));
     expect(r.filas).toHaveLength(1);

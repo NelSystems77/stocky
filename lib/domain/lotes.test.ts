@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FilaLote } from '@/lib/pdf/lotes';
 import {
+  clasificarRepetidos,
   compararLotes,
   detalleDeCambios,
   diferenciasConSifa,
@@ -415,6 +416,26 @@ describe('cargar dos veces el mismo reporte no duplica nada', () => {
     const g2 = guardar(planGuardadoLotes(lotesDesdeFilas([fila({ existencia: 10 }), fila({ existencia: 4 })]), g, FECHA), g);
     expect(g2[0]?.cantidad).toBe(1400);
     expect(g2[0]?.cantidadIngresada).toBe(1400);
+  });
+});
+
+describe('clasificarRepetidos', () => {
+  const rep1 = { codigo: '110-39-0900', ud: 'CN', lote: '4162601', vence: '2029-01-31', cantidades: [1060, 3200] };
+  const cuadre = (p: Partial<ReturnType<typeof cuadrarConExistencias>> = {}) => ({ diferencias: [], sinLotes: [], sinExistencia: [], coinciden: 1, ...p });
+
+  it('suma las filas y, si el producto cuadra con SIFA, dice que coincide (no hay duplicado)', () => {
+    expect(clasificarRepetidos([rep1], cuadre())).toEqual([{ ...rep1, suma: 4260, estado: 'coincide' }]);
+  });
+  it('si el producto no cuadra con SIFA, pide revisar', () => {
+    const c = cuadre({ diferencias: [{ codigo: '110-39-0900', descripcion: 'M', ud: 'CN', lotes: 426000, existencia: 300000 }] });
+    expect(clasificarRepetidos([rep1], c)[0]?.estado).toBe('difiere');
+  });
+  it('sin existencias guardadas (o producto sin existencia) no se puede comparar', () => {
+    expect(clasificarRepetidos([rep1], null)[0]?.estado).toBe('sinComparar');
+    expect(clasificarRepetidos([rep1], cuadre({ sinExistencia: ['110-39-0900'] }))[0]?.estado).toBe('sinComparar');
+  });
+  it('suma decimales sin error de coma flotante', () => {
+    expect(clasificarRepetidos([{ ...rep1, cantidades: [0.1, 0.2] }], null)[0]?.suma).toBe(0.3);
   });
 });
 

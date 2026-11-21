@@ -35,6 +35,10 @@ export const ResultadoLotesSchema = z.object({
   limite: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   /** «Total general» (colones) que declara el reporte. */
   totalDeclarado: z.number().nullable(),
+  /** Lotes que el reporte trae en más de una fila (mismo producto, lote y vencimiento: SIFA guarda una fila por entrada). Se suman. */
+  repetidos: z.array(
+    z.object({ codigo: z.string(), ud: z.string(), lote: z.string(), vence: z.string(), cantidades: z.array(z.number()).min(2) }),
+  ),
   /** Suma del valor de las filas leídas (colones). */
   sumaValor: z.number(),
   /** `true` si la suma coincide con el total declarado (con el redondeo del propio reporte); `null` si no trae total. */
@@ -193,14 +197,15 @@ export function parsearLotes(lineas: readonly string[]): ResultadoLotes {
     );
   }
 
-  const vistos = new Map<string, number>();
+  // Un lote en varias filas (varias entradas de mercadería del mismo lote) es normal: se suman, y la pantalla lo explica.
+  const porLote = new Map<string, { codigo: string; ud: string; lote: string; vence: string; cantidades: number[] }>();
   for (const f of filas) {
     const k = `${f.codigo}|${f.lote}|${f.vence}`;
-    vistos.set(k, (vistos.get(k) ?? 0) + 1);
+    const previo = porLote.get(k);
+    if (previo) previo.cantidades.push(f.existencia);
+    else porLote.set(k, { codigo: f.codigo, ud: f.ud, lote: f.lote, vence: f.vence, cantidades: [f.existencia] });
   }
-  for (const [k, n] of vistos) {
-    if (n > 1) advertencias.push(`Lote repetido en el reporte (${k.replaceAll('|', ' · ')}): ${n} filas. Se suman sus cantidades.`);
-  }
+  const repetidos = [...porLote.values()].filter((l) => l.cantidades.length > 1);
 
   const totalDeclarado = leerTotal(lineas);
   const suma = filas.reduce((s, f) => s + centimos(f.valor), 0);
@@ -220,6 +225,7 @@ export function parsearLotes(lineas: readonly string[]): ResultadoLotes {
     despacho: leerDespacho(lineas),
     limite: leerLimite(lineas),
     totalDeclarado,
+    repetidos,
     sumaValor: suma / 100,
     cuadra,
     filas,

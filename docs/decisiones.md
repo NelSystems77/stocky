@@ -327,3 +327,11 @@ La persona usuaria cargó primero las existencias y luego los lotes y vio «13 f
 - **Pruebas:** unitarias (el nombre sale de existencias, la segunda carga idéntica, medicamentos y no medicamentos una vez, lote en dos filas) y con los PDF reales (los 13 toman su nombre completo de existencias; la segunda carga no cambia nada).
 - **Pendiente anotado:** que la persona **elija qué hace con el archivo que sube** (cargar existencias, cargar lotes, actualizar consumos…) en vez de que Stocky lo adivine por el encabezado; hoy se detecta solo.
 
+## 2026-11-20 · «Lote repetido» deja de ser una advertencia
+
+La persona usuaria preguntó si los avisos «Lote repetido en el reporte… 2 filas. Se suman sus cantidades» significaban duplicados. **No lo son:** SIFA guarda una fila por cada entrada de mercadería, así que un mismo lote (mismo producto, número y vencimiento) puede salir en dos filas con cantidades distintas. En el PDF real son tres: metformina 4162601 (1 060 + 3 200 = 4 260 CN), indometacina T1AIZ01 (42 + 16 = 58 CN) y bupivacaína 75WH104 (132 + 80 = 212 FA), y cada suma coincide exactamente con la existencia de SIFA.
+
+- El lector ya **no las pone en «Revisa antes de guardar»**: las informa como dato (`repetidos`, con las cantidades de cada fila).
+- La vista previa tiene un bloque propio: «N lotes vienen en dos filas (varias entradas del mismo lote)… no se duplica nada», con cada suma («1 060 + 3 200 = 4 260 CN») y su estado: **coincide con SIFA**, **el producto NO coincide con SIFA: revisa** (esa sí lleva borde de advertencia) o **sin existencias guardadas para comparar**.
+- Sigue guardándose un solo lote con el total; cargar el mismo reporte otra vez no vuelve a sumar.
+

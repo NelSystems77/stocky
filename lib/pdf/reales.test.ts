@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extraerLineas } from './leerPdf';
 import { consolidarFilas } from '@/lib/domain/consolidado';
-import { compararLotes, cuadrarConExistencias, esMedicamento, hayCambios, lotesDesdeFilas, planGuardadoLotes, type LoteGuardado } from '@/lib/domain/lotes';
+import { clasificarRepetidos, compararLotes, cuadrarConExistencias, esMedicamento, hayCambios, lotesDesdeFilas, planGuardadoLotes, type LoteGuardado } from '@/lib/domain/lotes';
 import { parsearLotes } from './lotes';
 import { parsearReporte } from './parser';
 
@@ -50,8 +50,12 @@ describe.skipIf(!dir)('PDF reales de SIFA', () => {
     expect(r.cuadra).toBe(true);
     expect(r.filas.filter((f) => f.dudosa)).toHaveLength(13);
     // Tres lotes vienen repetidos con la misma fecha: se suman, no se pierden.
-    expect(r.advertencias.filter((a) => a.startsWith('Lote repetido'))).toHaveLength(3);
-    expect(r.advertencias.filter((a) => !a.startsWith('Lote repetido'))).toEqual([]);
+    expect(r.repetidos.map((x) => [x.codigo, x.lote, x.cantidades])).toEqual([
+      ['110-39-0900', '4162601', [1060, 3200]],
+      ['110-14-2640', 'T1AIZ01', [42, 16]],
+      ['110-19-3240', '75WH104', [132, 80]],
+    ]);
+    expect(r.advertencias).toEqual([]);
     expect(lotesDesdeFilas(r.filas)).toHaveLength(548);
     expect(r.filas.find((f) => f.codigo === '110-16-0010')).toMatchObject({ lote: '250242', vence: '2030-02-18', existencia: 4256.8 });
   }, 60_000);
@@ -79,6 +83,12 @@ describe.skipIf(!dir)('PDF reales de SIFA', () => {
     expect(segunda.lotes.every((l) => l.datos.cantidad === primera.get(l.id)?.cantidad && l.datos.cantidadIngresada === primera.get(l.id)?.cantidadIngresada)).toBe(true);
     expect(hayCambios(compararLotes([...primera.values()], lotes))).toBe(false);
     const c = cuadrarConExistencias(lotes, consolidarFilas(existencias.filas));
+    // Los 3 lotes en dos filas se suman y coinciden con SIFA: no hay duplicados.
+    expect(clasificarRepetidos(parsearLotes(await leerLineas('rpt_vencebodega.pdf')).repetidos, c).map((x) => [x.codigo, x.suma, x.estado])).toEqual([
+      ['110-39-0900', 4260, 'coincide'],
+      ['110-14-2640', 58, 'coincide'],
+      ['110-19-3240', 212, 'coincide'],
+    ]);
     expect(c.coinciden).toBe(436);
     expect(c.sinLotes).toEqual([]);
     expect(c.sinExistencia).toEqual([]);
