@@ -226,9 +226,9 @@ El despliegue **no** se hace desde la sesión de Claude: lo hace GitHub Actions 
 
 ---
 
-## 13. Conteo físico con diferencias contra SIFA (idea acordada, aún no construida)
+## 13. Conteo físico con diferencias contra SIFA (construido; PRD M11)
 
-Función nueva **no incluida en `docs/PRD.md`**. Vive en Inventario (conteo) y en Reportes (PDF/Excel). Se construye después del consolidado de Inventario; no adelantarla a otras fases sin pedirlo.
+Función pedida por la persona usuaria, fuera de las fases originales; **ya construida (PR 23) y registrada en `docs/PRD.md` como M11** (el §13 queda como especificación detallada). Vive en Inventario → Conteo físico, solo para el 771.
 
 **Qué es:** la persona cuenta físicamente los productos, escribe lo contado y Stocky lo compara con la existencia que dice SIFA (importada por PDF), señalando las diferencias.
 
@@ -247,4 +247,4 @@ Función nueva **no incluida en `docs/PRD.md`**. Vive en Inventario (conteo) y e
 7. **Exportación PDF** (`jspdf` + `jspdf-autotable`) y **Excel** (`xlsx`). Columnas: Código, Descripción, UD, SIFA, Contado, Diferencia, Observación. Encabezado con logo Stocky by NelSystems, nombre del usuario, unidad (771/772), fecha del conteo y fecha del reporte de SIFA usado. Resumen al pie: productos contados, con diferencia, faltantes y sobrantes.
 8. **Pruebas obligatorias (Vitest):** conversión sueltas → UD (`20000 → 200 CN`, decimales, factor 1), signo de la diferencia, producto sin contar, y que el conteo conserve su foto de SIFA.
 
-**Pendiente de confirmar (no inventar):** si se cuenta también **por lote** (requiere el reporte de lotes y vencimientos, aún sin muestra) y qué hacer con productos contados que no estén en el reporte de SIFA.
+**Decidido el 2026-11-21 (ver `docs/decisiones.md`):** la primera versión cuenta **solo por producto**; un producto contado que no está en el reporte de SIFA se agrega con SIFA = 0 y queda marcado. **Sigue pendiente:** contar **por lote** (requiere la muestra del reporte de lotes) y filtrar **por ubicación** (cuando exista M6).
