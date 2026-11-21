@@ -59,7 +59,8 @@ export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
   const contador = useRef(0);
 
   useEffect(() => {
-    entrada.current?.focus();
+    // En el celular no se enfoca solo: iOS acerca la página y abre el teclado sin que la persona lo pida (tocar el campo basta).
+    if (!window.matchMedia('(pointer: coarse)').matches) entrada.current?.focus();
   }, []);
   useEffect(() => {
     fin.current?.scrollIntoView({ block: 'end' });
