@@ -1,12 +1,12 @@
 # Estado del proyecto y pendientes
 
-Última actualización: **2026-11-21** (después del PR 29: lista de omitidos del Pedido al ALDI). Lo mantiene quien cierre cada sesión de trabajo.
+Última actualización: **2026-11-22** (historial de Chango IA; `main` incluye hasta el PR 29). Lo mantiene quien cierre cada sesión de trabajo.
 Qué construir: `docs/PRD.md`. Cómo trabajar: `CLAUDE.md`. Por qué se decidió cada cosa: `docs/decisiones.md`.
 
 ## Dónde estamos
 
 - **Primera etapa de pruebas de usuario (capa 8): cerrada el 2026-11-21.** Lo encontrado está resuelto: el «Cargando…» de Vencimientos (PR 16), las «filas dudosas» y el aviso de lotes en dos filas (PR 14 y 15) y la página que iOS acercaba al abrir Chango (PR 21 y 22). Si llega feedback nuevo, atenderlo primero.
-- **Chango IA no responde todavía:** Google devuelve 403 («the Gemini API free tier is not available for this project») con la key del proyecto sin facturación; el proyecto Stocky tiene el prepago sin créditos (402). Hay que decidir entre cargar un crédito pequeño o dejarlo apagado. Los registros de `changoPreguntar` ahora dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). La key actual es **temporal**: cambiarla por la definitiva (`firebase functions:secrets:set GEMINI_API_KEY`) y relanzar el despliegue.
+- **Chango IA responde desde el 2026-11-22:** se guardó la clave nueva (`GEMINI_API_KEY`, versión 4) y se redesplegó `changoPreguntar`; la persona usuaria lo comprobó en el celular. Las respuestas se cortan al tope de 1 024 tokens de salida a propósito (cuidar el saldo). Los registros de `changoPreguntar` dejan una línea `chango: intento con Gemini` por modelo (status, resultado y detalle). **Historial de Chango (PR en curso, rama `fase-chango-historial`):** botón «Historial» en el panel; lista las últimas 100 consultas por día, con «Preguntar de nuevo». Solo lectura: se borran solas a los 90 días (TTL sobre `expiraEn`, ver `docs/despliegue.md`). Sin probar en el celular.
 - **Orden de prioridad del código pendiente** (fijado por la persona usuaria el 2026-11-21; lo que no tiene número queda pendiente): 1 conteo físico · 2 reporte «Bajos y riesgo» · 3 alerta A8, alta manual de agotado y módulos de la 772 · 4 elegir el tipo de archivo al importar · 6 editar dañados, traslados y entregas. El **5 (resumen mensual automático) quedó sin número**, pendiente. El **Pedido al ALDI** (PR 26) se pidió después de fijar este orden y no tenía número. Ver «Código pendiente».
 - **`main` incluye hasta el PR 29** y está desplegado en producción por GitHub Actions: **Pedido al ALDI**, registros (con edición y recepción de traslados con diferencia), pedidos y envíos, Vencimientos, conteo físico, reporte «Bajos y riesgo», alerta A8, alta manual de agotados, módulos de la 772 y selector de tipo al importar.
 - **Ningún PR abierto.**
