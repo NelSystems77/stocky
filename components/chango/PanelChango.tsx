@@ -1,10 +1,12 @@
 'use client';
 
-import { Bot, Send, Trash2, WifiOff, X } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Bot, History, Send, Trash2, WifiOff, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { HistorialChango } from './HistorialChango';
+import { TextoRespuesta } from './TextoRespuesta';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { useEstadoSync } from '@/lib/db/sync';
 import { MAX_PREGUNTA, SUGERENCIAS_CHANGO, type TurnoChango } from '@/lib/domain/chango';
-import { parsearRespuesta, type Trozo } from '@/lib/chango/texto';
 import { mensajeErrorChango, preguntarAChango } from '@/lib/functions/chango';
 
 interface Mensaje extends TurnoChango {
@@ -12,34 +14,6 @@ interface Mensaje extends TurnoChango {
   /** Respuesta que no es un dato de Chango (sin cuota, error): se muestra distinta y no entra al historial. */
   aviso?: boolean;
   fechaDatos?: string | null;
-}
-
-const Trozos = ({ trozos }: { trozos: Trozo[] }) => (
-  <>
-    {trozos.map((t, i) => (t.negrita ? <strong key={i}>{t.texto}</strong> : <Fragment key={i}>{t.texto}</Fragment>))}
-  </>
-);
-
-function TextoRespuesta({ texto }: { texto: string }) {
-  return (
-    <div className="flex flex-col gap-2">
-      {parsearRespuesta(texto).map((b, i) =>
-        b.tipo === 'parrafo' ? (
-          <p key={i}>
-            <Trozos trozos={b.trozos} />
-          </p>
-        ) : (
-          <ul key={i} className="ml-4 list-disc">
-            {b.items.map((it, j) => (
-              <li key={j}>
-                <Trozos trozos={it} />
-              </li>
-            ))}
-          </ul>
-        ),
-      )}
-    </div>
-  );
 }
 
 /** Marca la última pregunta como sin respuesta útil para que no se reenvíe como historial. */
@@ -51,6 +25,9 @@ function marcarUltimaPregunta(mensajes: Mensaje[]): Mensaje[] {
 /** Panel de chat de Chango IA. La conversación vive solo en pantalla; cada pregunta lleva los últimos turnos como contexto. */
 export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
   const { online } = useEstadoSync();
+  const { estado } = useAuth();
+  const uid = estado.fase === 'listo' ? estado.sesion.uid : null;
+  const [verHistorial, setVerHistorial] = useState(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [texto, setTexto] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -73,6 +50,7 @@ export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
     const historial = mensajes.filter((m) => !m.aviso).map(({ rol, texto: t }) => ({ rol, texto: t }));
     setMensajes((m) => [...m, { id: ++contador.current, rol: 'usuario', texto: limpia }]);
     setTexto('');
+    setVerHistorial(false);
     setEnviando(true);
     try {
       const r = await preguntarAChango(limpia, historial);
@@ -96,11 +74,21 @@ export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
     >
       <header className="flex items-center justify-between gap-2 px-4 pt-4 pb-2">
         <p className="flex items-center gap-2 font-semibold text-accent">
-          <Bot aria-hidden className="size-5" />
-          Chango IA
+          {verHistorial ? <History aria-hidden className="size-5" /> : <Bot aria-hidden className="size-5" />}
+          {verHistorial ? 'Historial de Chango' : 'Chango IA'}
         </p>
         <div className="flex items-center">
-          {mensajes.length > 0 && (
+          {uid && (
+            <button
+              type="button"
+              aria-label={verHistorial ? 'Volver a la conversación' : 'Ver el historial de preguntas'}
+              onClick={() => setVerHistorial((v) => !v)}
+              className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface"
+            >
+              {verHistorial ? <ArrowLeft aria-hidden className="size-4" /> : <History aria-hidden className="size-4" />}
+            </button>
+          )}
+          {!verHistorial && mensajes.length > 0 && (
             <button type="button" aria-label="Borrar la conversación" onClick={() => setMensajes([])} className="grid size-11 place-items-center rounded-xl text-text-muted hover:bg-surface">
               <Trash2 aria-hidden className="size-4" />
             </button>
@@ -111,6 +99,11 @@ export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
         </div>
       </header>
 
+      {verHistorial && uid ? (
+        <div className="flex-1 overflow-y-auto px-4 pb-4 text-sm">
+          <HistorialChango uid={uid} puedePreguntar={online && !enviando} alPreguntarDeNuevo={(p) => void enviar(p)} />
+        </div>
+      ) : (
       <div aria-live="polite" className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-2 text-sm">
         {mensajes.length === 0 && (
           <div className="flex flex-col gap-3">
@@ -145,6 +138,7 @@ export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
         )}
         <div ref={fin} />
       </div>
+      )}
 
       {!online && (
         <p role="status" className="mx-4 mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs text-warning">
@@ -153,6 +147,7 @@ export function PanelChango({ alCerrar }: { alCerrar: () => void }) {
         </p>
       )}
       <form
+        hidden={verHistorial}
         className="flex items-end gap-2 px-4 pt-1 pb-4"
         onSubmit={(e) => {
           e.preventDefault();

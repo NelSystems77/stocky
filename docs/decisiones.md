@@ -425,3 +425,11 @@ Algunas cuotas pueden estar desactualizadas. Con el tiempo (**unos 3 meses** de 
 - **Alternativas anotadas, según lo que muestre la lista:** incluir los sin cuota que tengan consumo (consumo × factor − existencia, sin tope, marcados «sin cuota») o los sin cuota con existencia 0 para que la persona decida la cantidad a mano.
 - **Pruebas:** la lista (motivos, orden, cuota y existencia ausentes) y que lo pedido más lo omitido sea todo el inventario. **La pantalla no se probó en el celular.**
 
+
+## 2026-11-22 · Historial de Chango IA
+
+**Pedido:** poder ver las preguntas anteriores a Chango. Se había propuesto también borrarlas a mano; la persona usuaria prefirió **dejar que se borren solas a los 90 días**, como ya estaba definido.
+
+- **Qué se hizo:** botón «Historial» en el panel de Chango. Lee `usuarios/{uid}/changoIA` (la Function ya guardaba pregunta, respuesta, modelo y fecha), muestra las últimas 100 consultas agrupadas por día de Costa Rica, con la respuesta al tocarla y «Preguntar de nuevo» (que gasta una pregunta del tope diario). Funciona también sin conexión con lo ya sincronizado.
+- **Sin borrado manual:** `firestore.rules` no cambia (`changoIA` sigue de solo lectura para el cliente). El único borrado es la política TTL de Firestore sobre `expiraEn` (90 días); si esa política no está activada (ver `docs/despliegue.md`), el historial **no** se borra solo.
+- **Pruebas:** agrupar por día de Costa Rica (no por UTC), orden. La pantalla no se probó en el celular.
